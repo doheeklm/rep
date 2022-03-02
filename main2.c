@@ -2,5 +2,5 @@
 
 int main(){
 	
-	printf("maiinn\n");
+	printf("edited main\n");
 }
