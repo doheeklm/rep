@@ -1,10 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h> //malloc() free()
 #include <errno.h>
 #include <sys/types.h> //open()
 #include <sys/stat.h> //open()
 #include <fcntl.h> //open()
 #include <unistd.h> //close()
 #include <string.h> //strcmp() memset()
+
+enum { CLOSED = 1 };
 
 void Usage()
 {
@@ -20,7 +23,7 @@ int CLOSE(FILE* stream)
 		return 0;
 	}
     
-	return 1; //define 하기
+	return CLOSED;
 }
 
 int main(int argc, char* argv[])
@@ -37,24 +40,53 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	/* -f 입력일때, f = true */
+	/* -f 입력 되었을때 */
 	int f = 0;
 	if (strcmp(argv[1], "-f") == 0) {
 		f = 1;
 	}
    
 	/* src 파일 존재 여부 확인 */
-	const char* src = argv[1 + f];
-	if (access(src, F_OK) == -1) {	
+	const char* path_src = argv[1 + f];
+	if (access(path_src, F_OK) == -1) {	
 		fprintf(stderr, "access src errno[%d] : %s\n", errno, strerror(errno));
+		if (errno == ENOENT) {
+			printf("존재하는 파일이 없습니다.\n");
+			return 0;
+		}
+		else {
+			return 0;
+		}
+	}
+
+	/* 문자열버퍼 크기를 파일크기만큼 할당*/
+	off_t file_size;
+	char* buffer;
+	struct stat buf;
+
+	int fd_src = open(path_src, O_RDONLY);
+	if (fd_src == -1) {
+		fprintf(stderr, "fd_src errno[%d] : %s\n", errno, strerror(errno));
+		//errno
+		return 0;
+	}
+	if (fstat(fd_src, &buf) != 0) {
+		fprintf(stderr, "fstat errno[%d] : %s\n", errno, strerror(errno));
 		//errno
 		return 0;
 	}
 
-	const char* dest = argv[2 + f];
-	
+	file_size = buf.st_size;
+	printf("file size: %ld\n", file_size);
+		
+	buffer = (char*)malloc(file_size);
+	if (buffer == NULL) {
+		printf("malloc error\n");
+		return 0;
+	}	
+
 	/* 읽기 전용으로 src파일 fopen */
-	FILE* fp_src = fopen(src, "r");
+	FILE* fp_src = fdopen(fd_src, "r");
 	if (fp_src == NULL) {
 		fprintf(stderr, "fp_src errno[%d] : %s\n", errno, strerror(errno));
 		//errno EINVAL
@@ -62,12 +94,12 @@ int main(int argc, char* argv[])
 	}
 
 	/* dest파일이 존재할 때의 에러 처리를 위해 open(), fdopen() 사용 */
+	const char* path_dest = argv[2 + f];
 	int fd_dest;
-	fd_dest = open(dest, O_CREAT | O_EXCL | O_WRONLY);
-	FILE* fp_dest = fopen(dest, "w");
+	FILE* fp_dest;
 
-	/* -f 옵션이 OFF 또는 ON 일때 */
-	if (f == 0) {
+	if (f == 0) { /* fdopen()으로 하면 */
+		fd_dest = open(path_dest, O_CREAT | O_EXCL | O_WRONLY);
 		if (fd_dest == -1) {	
 			fprintf(stderr, "fd_dest errno[%d] : %s\n", errno, strerror(errno));
 			//errno
@@ -75,8 +107,8 @@ int main(int argc, char* argv[])
 		}
 		fp_dest = fdopen(fd_dest, "w");
 	}
-	else if (f == 1) {
-	/* fopen()은 파일이 존재하면 해당 파일의 내용을 삭제함 */
+	else if (f == 1) { /* fopen()은 파일이 존재하면 해당 파일의 내용을 삭제함 */
+		fp_dest = fopen(path_dest, "w");
 		if (fp_dest == NULL) {
 			fprintf(stderr, "fp_dest errno[%d] : %s\n", errno, strerror(errno));
 			//errno
@@ -84,22 +116,19 @@ int main(int argc, char* argv[])
 		}
 	}
     
-	//fseek ftell? ??
-	char buf[1000];
-	memset(buf, 0, sizeof(buf));
+	size_t rd = fread(buffer, file_size, 1, fp_src);
+	size_t wr = fwrite(buffer, file_size, 1, fp_dest);
 
-	size_t rd = fread(&buf, sizeof(buf), 1, fp_src);
 	if (rd != 1) {
 		fprintf(stderr, "fread errno[%d] : %s\n", errno, strerror(errno));
-		//errno
+		//errno EISDIR
 		return 0;
 	}
-
-	size_t wr = fwrite(&buf, sizeof(buf), 1, fp_dest);
+		
 	if (wr != 1) {
 		fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
 		//errno
-		return 0;	
+		return 0;
 	}
 	
 	if (CLOSE(fp_src)) {
@@ -107,5 +136,8 @@ int main(int argc, char* argv[])
 	}
 
 	printf("Copy success\n");
+
+	free(buffer);
+
 	return 0;
 } 
