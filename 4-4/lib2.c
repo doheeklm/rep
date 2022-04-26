@@ -66,26 +66,24 @@ int main()
 		return 0;
 	}
 
-	fp = fdopen(fd, "r");
+	fp = fdopen(fd, "r+");
 	if (fp == NULL) {
 		fprintf(stderr, "fp errno[%d] : %s\n", errno, strerror(errno));
 		return 0;
 	}
 
-	printf("sizeof(info) : %ld\n", sizeof(info));
-//?................	
-//	rd = fread(info, sizeof(info), 1, fp);
+	rd = fread(info, sizeof(info), 1, fp); //== fread(info, sizeof(*info), MAX, fp)
+	printf("read %ld\n", rd);
 
 	for (int i = 0; i < MAX; i++) {
 		if (info[i].id == '\0') {
-			printf("empty info[%d]\n",i);
+			printf("info[%d] 비어있음\n",i);
 			count = i;
 			break;
 		}
 	}
 
-	printf("intial count %d\n", count);
-	printf("sizeof(info) %ld\n", sizeof(info));
+	printf("현재 저장된 정보 %d개\n", count);
 
 	do {
 		backToMenu = 0;
@@ -174,6 +172,22 @@ int main()
 					else {
 						printf("info[%d] 입력\n", count);
 						count++;
+
+						if (fseek(fp, 0L, SEEK_SET) != 0) {
+							fprintf(stderr, "fseek errno[%d] : %s\n", errno, strerror(errno));
+							return 0;
+						}
+
+						wr = fwrite(info, sizeof(info), 1, fp); //== fwrite(info, sizeof(*info), MAX, fp)
+						printf("write %ld\n", wr);
+					
+						if (wr != 1) {
+							fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
+							return 0;
+						}
+						else {
+							fflush(fp);
+						}
 					}
 				}
 				break;
@@ -197,12 +211,20 @@ int main()
 				{
 					printf("종료합니다.\n");
 					
+					/*
 					if (fseek(fp, 0L, SEEK_SET) != 0) {
 						fprintf(stderr, "fseek errno[%d] : %s\n", errno, strerror(errno));
 						return 0;
 					}
 
-//					wr = fwrite(info, sizeof(info), 1, fp);
+					wr = fwrite(info, sizeof(info), 1, fp); //== fwrite(info, sizeof(*info), MAX, fp)
+					printf("wr %ld\n", wr);
+					
+					if (wr != 1) {
+						fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
+						return 0;
+					}
+					*/
 
 					if (fclose(fp) != 0) {
 						fprintf(stderr, "CLOSE errno[%d] : %s\n", errno, strerror(errno));
@@ -273,7 +295,7 @@ void PrintInfo(Info* info)
 
 	for (int i = 0; i < nSub; i++) {
 		if (info->sub & (int)pow(2, i)) {
-			printf("%s, ", Subject[i]);
+			printf("%s ", Subject[i]);
 		}
 	}
 	printf("\n");
