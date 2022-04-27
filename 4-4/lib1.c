@@ -59,31 +59,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	/* 문자열버퍼 크기를 파일크기만큼 할당*/
-	off_t file_size;
-	char* buffer;
-	struct stat buf;
-
 	int fd_src = open(path_src, O_RDONLY);
 	if (fd_src == -1) {
 		fprintf(stderr, "fd_src errno[%d] : %s\n", errno, strerror(errno));
 		//errno
 		return 0;
 	}
-	if (fstat(fd_src, &buf) != 0) {
-		fprintf(stderr, "fstat errno[%d] : %s\n", errno, strerror(errno));
-		//errno
-		return 0;
-	}
-
-	file_size = buf.st_size;
-	printf("file size: %ld\n", file_size);
-		
-	buffer = (char*)malloc(file_size);
-	if (buffer == NULL) {
-		printf("malloc error\n");
-		return 0;
-	}	
 
 	/* 읽기 전용으로 src파일 fopen */
 	FILE* fp_src = fdopen(fd_src, "r");
@@ -98,17 +79,21 @@ int main(int argc, char* argv[])
 	int fd_dest;
 	FILE* fp_dest;
 
-	if (f == 0) { /* fdopen()으로 하면 */
+	if (f == 0) {
 		fd_dest = open(path_dest, O_CREAT | O_EXCL | O_WRONLY);
 		if (fd_dest == -1) {	
 			fprintf(stderr, "fd_dest errno[%d] : %s\n", errno, strerror(errno));
 			//errno
 			return 0;
 		}
+
+		/* fdopen() */
 		fp_dest = fdopen(fd_dest, "w");
 	}
-	else if (f == 1) { /* fopen()은 파일이 존재하면 해당 파일의 내용을 삭제함 */
+	else if (f == 1) {
+		/* fopen() : 해당 파일이 존재하면 해당 파일의 내용을 삭제함 */
 		fp_dest = fopen(path_dest, "w");
+
 		if (fp_dest == NULL) {
 			fprintf(stderr, "fp_dest errno[%d] : %s\n", errno, strerror(errno));
 			//errno
@@ -116,19 +101,25 @@ int main(int argc, char* argv[])
 		}
 	}
     
-	size_t rd = fread(buffer, file_size, 1, fp_src);
-	size_t wr = fwrite(buffer, file_size, 1, fp_dest);
+	char buffer[1000];
 
-	if (rd != 1) {
-		fprintf(stderr, "fread errno[%d] : %s\n", errno, strerror(errno));
-		//errno EISDIR
-		return 0;
-	}
+	while (1) {
+		memset(buffer, 0, sizeof(buffer));
+
+		size_t rd = fread(buffer, sizeof(buffer), 1, fp_src);
+		size_t wr = fwrite(buffer, sizeof(buffer), 1, fp_dest);
+
+		if (rd != 1) {
+			fprintf(stderr, "fread errno[%d] : %s\n", errno, strerror(errno));
+			//errno EISDIR
+			return 0;
+		}
 		
-	if (wr != 1) {
-		fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
-		//errno
-		return 0;
+		if (wr != 1) {
+			fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
+			//errno
+			return 0;
+		}
 	}
 	
 	if (CLOSE(fp_src)) {
@@ -136,8 +127,6 @@ int main(int argc, char* argv[])
 	}
 
 	printf("Copy success\n");
-
-	free(buffer);
 
 	return 0;
 } 
