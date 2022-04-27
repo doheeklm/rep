@@ -34,7 +34,7 @@ void ClearStdin(char* str)
 
 int main()
 {
-	const char* path = "./f.txt";
+	const char* path = "./lib2.txt";
 	
 	int fd = 0;
 	FILE* fp;
@@ -52,7 +52,6 @@ int main()
 	
 	char temp[200]; //과목명 입력받는 임시변수
 	memset(temp, 0, sizeof(temp));
-	int option = 0; //비트
 
 	char search[13];
 	memset(search, 0, sizeof(search));
@@ -152,8 +151,15 @@ int main()
 						printf("cut = %s\n", cut);
 						for (int i = 0; i < nSub; i++) {
 							if (strcmp(Subject[i], cut) == 0) {
-								option = (int)pow(2, i); //option 2^3 = 8 ==> 0000 1000
-								info[count].sub |= option;
+								
+								info[count].sub = info[count].sub | (1 << i);
+								//if (i == 0)
+								//0000 0000 | 0000 0001 = 0000 0001
+								//if (i == 5)
+								//0000 0001 | 0010 0000 = 0010 0001 
+								
+								//option = (int)pow(2, i); //option 2^3 = 8 ==> 0000 1000
+
 								backToMenu = 0;
 								break;
 							}
@@ -210,26 +216,25 @@ int main()
 			case 3:
 				{
 					printf("종료합니다.\n");
-					
-					/*
+				
 					if (fseek(fp, 0L, SEEK_SET) != 0) {
 						fprintf(stderr, "fseek errno[%d] : %s\n", errno, strerror(errno));
 						return 0;
 					}
 
 					wr = fwrite(info, sizeof(info), 1, fp); //== fwrite(info, sizeof(*info), MAX, fp)
-					printf("wr %ld\n", wr);
+					printf("write %ld\n", wr);
 					
 					if (wr != 1) {
 						fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
 						return 0;
 					}
-					*/
-
+					
 					if (fclose(fp) != 0) {
 						fprintf(stderr, "CLOSE errno[%d] : %s\n", errno, strerror(errno));
 						return 0;
 					}
+					
 				}
 				break;
 			case 4:
@@ -256,6 +261,22 @@ int main()
 							break;
 						}
 					}
+
+					if (fseek(fp, 0L, SEEK_SET) != 0) {
+						fprintf(stderr, "fseek errno[%d] : %s\n", errno, strerror(errno));
+						return 0;
+					}
+
+					wr = fwrite(info, sizeof(info), 1, fp); //== fwrite(info, sizeof(*info), MAX, fp)
+					printf("write %ld\n", wr);
+					
+					if (wr != 1) {
+						fprintf(stderr, "fwrite errno[%d] : %s\n", errno, strerror(errno));
+						return 0;
+					}
+					else {
+						fflush(fp);
+					}
 				}
 				break;
 		}
@@ -266,36 +287,34 @@ int main()
 
 void PrintInfo(Info* info)
 {
-	size_t length = strlen(info->name);
+	printf("ID: %4d, 이름: %s", info->id, info->name);
 
-	printf("ID: ");
-	if (info->id < 10) {
-		printf("   ");
-	}
-	else if (info->id < 100) {
-		printf("  ");
-	}
-	else if (info->id < 1000) {
-		printf(" ");
-	}
-
-	printf("%d, 이름: %s", info->id, info->name);
-	
-	if (length == 3) {
+	size_t len = strlen(info->name);
+	if (len == 3) {
 		printf("      ");
 	}
-	else if (length == 6) {
+	else if (len == 6) {
 		printf("    ");
 	}
-	else if (length == 9) {
+	else if (len == 9) {
 		printf("  ");
 	}
 
 	printf(", 수강신청 과목: ");
+	int cnt = 0;
+	for (int i = 0; i < nSub; i++) {
+		if (info->sub & (1 << i)) {
+			cnt++;
+		}
+	}
 
 	for (int i = 0; i < nSub; i++) {
-		if (info->sub & (int)pow(2, i)) {
-			printf("%s ", Subject[i]);
+		if (info->sub & (1 << i)){
+			printf("%s", Subject[i]);
+			if (cnt != 1) {
+				printf(", ");
+				cnt--;
+			}
 		}
 	}
 	printf("\n");
