@@ -6,29 +6,17 @@
 void handler()
 {
 	static int count = 1;
+	printf("count %d\n", count);
 
-	switch (count) {
-		case 1:
-			{
-				printf("count %d\n", count);
-				printf("SIGUSR1 first\n");
-			}
-			break;
-		case 2:
-			{
-				printf("count %d\n", count);
-				printf("SIGUSR1 second\n");
-			}
-			break;
-		case 3:
-			{
-				printf("count %d\n", count);
-				printf("exit the program\n");
-				exit(1);
-			}
-			break;
-		default:
-			break;
+	if (count == 1) {
+		printf("SIGUSR1 first\n");
+	}
+	else if (count == 2) {
+		printf("SIGUSR1 second\n");
+	}
+	else {
+		printf("exit the program\n");
+		exit(1);
 	}
 
 	count++;
@@ -36,20 +24,32 @@ void handler()
 
 int main()
 {
-	/* SIGTERM 수신해도 프로그램은 종료하지 않음 */
-	if (signal(SIGTERM, SIG_IGN) == SIG_ERR) {
+	struct sigaction act;
+	
+	act.sa_handler = SIG_IGN;
+	
+	sigemptyset(&act.sa_mask);
+	
+	int signo[2] = { SIGTERM, SIGINT };
+	
+	for (size_t i = 0; i < sizeof(signo); i++) {
+	
+		sigaddset(&act.sa_mask, signo[i]);
+	
+		if (sigismember(&act.sa_mask, signo[i]) == 1) {
+			printf("signo[%d] 포함\n", signo[i]);
+		
+			if (sigaction(signo[i], &act, NULL) != 0) {
+				perror("sigaction error\n");
+				return 0;
+			}
+		}
+	}
+	
+	if (signal(SIGUSR1, handler) == SIG_ERR) {
 		perror("error\n");
 		return 0;
 	}
-	
-	struct sigaction act;
-	sigemptyset(&act.sa_mask);
-	sigaddset(&act.sa_mask, SIGUSR1);
-
-	act.sa_sigaction = handler;
-	act.sa_flags = SA_SIGINFO;
-
-	sigaction(SIGUSR1, &act, NULL);
 
 	while (1) {
 		raise(SIGUSR1);
