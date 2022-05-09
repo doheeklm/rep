@@ -7,15 +7,13 @@
 #include <sys/stat.h> //stat()
 #include <stdlib.h> //exit()
 
-enum { BUFSIZE = 255, LINES = 10 };
+enum { BUFSIZE = 255 };
 
 int main(int argc, char *argv[])
 {
-	printf("[ 현재 실행 중인 PID %d ]\n", getpid());
-
 	const char *search = argv[1];
 	const char *path = argv[2];
-	const char *tempPath = "./search.txt";
+	const char *tempPath = "./temp.txt";
 
 	if (access(path, F_OK) == -1) {
 		printf("%s is not existed\n", path);
@@ -36,16 +34,17 @@ int main(int argc, char *argv[])
 		printf("can't read file info\n");
 		return 0;
 	}
+
 	off_t fileSize;
 	fileSize = fileInfo.st_size;
 	printf("[ %s 파일 사이즈 %ld Byte ]\n", path, fileSize);
-	
+
 	FILE* fp_search;
 	fp_search = fopen(tempPath, "w+");
 	if (fp_search == NULL) {
 		perror("fopen()");
 	}
-	
+
 	char c;
 	int line = 0;
 	while ((c = fgetc(fp)) != EOF) {
@@ -56,49 +55,71 @@ int main(int argc, char *argv[])
 	printf("[ 라인 갯수 %d ]\n", line);
 	fseek(fp, 0, SEEK_SET);
 
+	int loop = 10;
+
 	int count;
-	count = (line / LINES) + 1; //LINES 줄마다 프로세스 1개
-	pid_t pids[count];
+	count = (line / loop) + 1; //LINES 줄마다 프로세스 1개
 	printf("[ 자식 프로세스 갯수 %d ]\n", count);
-	printf("[ 프로세스당 읽어들이는 라인 갯수 %d]\n", LINES);
+	printf("[ 프로세스당 읽어들이는 라인 갯수 %d]\n", loop);
 
-	int i;
+	int i = 0;
 	int lineCheck = 0;
-	int status = 0;
 
-	char buf[300];
+	int status = 0;
+	pid_t pid[count];
 
 	for (i = 0; i < count; i++) {
-		pids[i] = fork();
-		
-		if (pids[i] == -1) {
-			perror("fork()");
-		}
-		else if (pids[i] == 0) { //자식 프로세스
-			printf("자식[%d], getpid %d\n", i, getpid());
+		pid[i] = fork();
 
-			while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-				printf("%p %d %s", fp, ftell(fp), buffer);
+		if (pid[i] == 0) {
+			printf("Child %d\n", getpid());
+			
+			while(fgets(buffer, sizeof(buffer), fp) != NULL) {
+				//printf("fp: %p ", fp); //주소
+				//printf("ftell(fp): %ld ", ftell(fp)); //스트림의 위치 지정자의 현재 위치
+				//printf("%s", buffer);
 				lineCheck++;
-				if (lineCheck >= LINES) {
+				
+				if (lineCheck >= loop) {
 					break;
 				}
-					
-				//확인
+
 				if (strstr(buffer, search) != NULL) {
-					fprintf(fp_search, "%d: %s", lineCheck, buffer);
+					fprintf(fp_search, "%d: %s", lineCheck + (i * 10), buffer);
 				}
 			}
 
 			exit(0);
 		}
-		else { //부모 프로세스
-				wait(NULL);		
-				
-				printf("자식[%d] 종료, getpid %d\n", i, getpid());
+		else if (pid[i] > 0) {
+			printf("Parent %d\n", getpid());
 
+			if (waitpid(pid[i], &status, 0) == -1) {
+				perror("waitpid");
+				exit(1);
+			}
+			if (WIFEXITED(status) != 0) {
+				printf("pid %d 정상종료\n", pid[i]);
+			}
+		}
+		else if (pid[i] == -1) {
+			perror("fork()");
+			exit(1);
 		}
 	}
+
+	char buf[BUFSIZE];
+	
+	fseek(fp_search, 0, SEEK_SET);
+	
+	printf("\ncurrent %d\n", getpid());
+	
+	while (feof(fp_search) == 0) {
+		memset(buf, 0, sizeof(buf));
+		fread(buf, sizeof(buf), 1, fp_search);
+		printf("%s", buf);
+	}
+	execl("/bin/rm", "rm", tempPath, NULL);
 
 	if (fclose(fp) != 0) {
 		perror("fclose()");
