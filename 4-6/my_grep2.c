@@ -7,7 +7,7 @@
 #include <sys/stat.h> //stat()
 #include <stdlib.h> //exit()
 
-enum { BUFSIZE = 255, LOOP = 10 };
+enum { BUFSIZE = 255, LINES_PER_CHILD = 20 };
 
 int main(int argc, char *argv[])
 {
@@ -21,91 +21,74 @@ int main(int argc, char *argv[])
 	}
 
 	char buffer[BUFSIZE];
-	memset(buffer, 0, sizeof(buffer));
-
-	FILE* fp;
-	fp = fopen(path, "r");
-	if (fp == NULL) {
-		perror("fopen()");
-	}
-
-	struct stat fileInfo;
-	if (stat(path, &fileInfo) != 0) {
-		perror("stat()");
-	}
-
-	off_t fileSize;
-	fileSize = fileInfo.st_size;
-	printf("[ %s 파일 사이즈 %ld Byte ]\n", path, fileSize);
-
-	FILE* fp_search;
-	fp_search = fopen(tempPath, "w+");
-	if (fp_search == NULL) {
-		perror("fopen()");
-	}
-
-	char c;
-	int line = 0;
-	while ((c = fgetc(fp)) != EOF) {
-		if (c == '\n') {
-			line++;
-		}
-	}
-	printf("[ 라인 갯수 %d ]\n", line);
-	fseek(fp, 0, SEEK_SET);
-
-	int loop = 10;
-
-	int count;
-	count = (line / LOOP) + 1;
-	printf("[ 자식 프로세스 갯수 %d ]\n", count);
-	printf("[ 프로세스당 읽어들이는 라인 갯수 %d]\n", loop);
-
 	int i = 0;
-	int lineCheck = 0;
-
+	int count = 0;
+	int nChild = 0;
 	int status = 0;
-	pid_t pid[count];
+	pid_t pid;
 
-	for (i = 0; i < count; i++) {
-		pid[i] = fork();
+	do {	
+		pid = fork();
 
-		if (pid[i] == 0) {
+		if (pid == 0) {
 			printf("Child %d\n", getpid());
 			
-			while(fgets(buffer, sizeof(buffer), fp) != NULL) {
-				//printf("fp: %p ", fp); //주소
-				//printf("ftell(fp): %ld ", ftell(fp)); //스트림의 위치 지정자의 현재 위치
-				//printf("%s", buffer);
-	
-				lineCheck++;
-				if (lineCheck >= LOOP) {
-					break;
-				}
+			FILE* fp;
+			fp = fopen(path, "r");
+			if (fp == NULL) {
+				perror("fopen()");
+			}
 
-				if (strstr(buffer, search) != NULL) {
-					fprintf(fp_search, "%d: %s", lineCheck + (i * 10), buffer);
+			struct stat fileInfo;
+			if (stat(path, &fileInfo) != 0) {
+				perror("stat()");
+			}
+
+			off_t fileSize;
+			fileSize = fileInfo.st_size;
+			
+			char c;
+			int lines = 0;
+			while ((c = fgetc(fp) != EOF)) {
+				if (c == '\n') {
+					lines++;
 				}
 			}
+			nChild = lines / LINES_PER_CHILD; //자식 프로세스 갯수
+			
+			for (i = 0; i < LINES_PER_CHILD; i++) {
+				memset(buffer, 0, sizeof(buffer));
+				fseek(fp, /* offset */,SEEK_SET);
+				fgets(buffer, sizeof(buffer), fp);
+
+				printf("fp: %p ", fp);
+				printf("ftell(fp): %ld ", ftell(fp));
+				printf("%s", buffer);
+			}
+
+			//	if (strstr(buffer, search) != NULL) {
+				//	fprintf(fp_search, "%d: %s", lineCheck + (i * 10), buffer);
+			//	}
 
 			exit(0);
 		}
-		else if (pid[i] > 0) {
+		else if (pid > 0) {
 			printf("Parent %d\n", getpid());
 
-			if (waitpid(pid[i], &status, 0) == -1) {
+			if (waitpid(pid, &status, 0) == -1) {
 				perror("waitpid");
-				exit(1);
 			}
 			if (WIFEXITED(status) != 0) {
 				printf("< %d 정상종료 >\n", pid[i]);
 			}
 		}
-		else if (pid[i] == -1) {
+		else if (pid == -1) {
 			perror("fork()");
-			exit(1);
 		}
-	}
+
+		count++;
+		printf("count %d\n", count);
+	} while (count >= nChild); // 수정
 
 	fseek(fp_search, 0, SEEK_SET);
 	printf("\nCurrent PID %d\n", getpid());
@@ -125,7 +108,7 @@ int main(int argc, char *argv[])
 	if (stat(tempPath, &fileInfo2) != 0) {
 		perror("stat()");
 	}
-	size_t s = fileInfo2.st_size;
+	
 	if (fileInfo2.st_size == 0) {
 		printf("\"%s\" not found in %s\n", search, path);
 	}
