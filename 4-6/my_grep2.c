@@ -7,7 +7,7 @@
 #include <sys/stat.h> //stat()
 #include <stdlib.h> //exit()
 
-enum { BUFSIZE = 255 };
+enum { BUFSIZE = 255, LOOP = 10 };
 
 int main(int argc, char *argv[])
 {
@@ -31,8 +31,7 @@ int main(int argc, char *argv[])
 
 	struct stat fileInfo;
 	if (stat(path, &fileInfo) != 0) {
-		printf("can't read file info\n");
-		return 0;
+		perror("stat()");
 	}
 
 	off_t fileSize;
@@ -58,7 +57,7 @@ int main(int argc, char *argv[])
 	int loop = 10;
 
 	int count;
-	count = (line / loop) + 1; //LINES 줄마다 프로세스 1개
+	count = (line / LOOP) + 1;
 	printf("[ 자식 프로세스 갯수 %d ]\n", count);
 	printf("[ 프로세스당 읽어들이는 라인 갯수 %d]\n", loop);
 
@@ -78,9 +77,9 @@ int main(int argc, char *argv[])
 				//printf("fp: %p ", fp); //주소
 				//printf("ftell(fp): %ld ", ftell(fp)); //스트림의 위치 지정자의 현재 위치
 				//printf("%s", buffer);
+	
 				lineCheck++;
-				
-				if (lineCheck >= loop) {
+				if (lineCheck >= LOOP) {
 					break;
 				}
 
@@ -99,7 +98,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			if (WIFEXITED(status) != 0) {
-				printf("pid %d 정상종료\n", pid[i]);
+				printf("< %d 정상종료 >\n", pid[i]);
 			}
 		}
 		else if (pid[i] == -1) {
@@ -108,17 +107,29 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	char buf[BUFSIZE];
-	
 	fseek(fp_search, 0, SEEK_SET);
-	
-	printf("\ncurrent %d\n", getpid());
-	
+	printf("\nCurrent PID %d\n", getpid());
+
+	char buf[BUFSIZE];
+	int rep = 0;
 	while (feof(fp_search) == 0) {
 		memset(buf, 0, sizeof(buf));
 		fread(buf, sizeof(buf), 1, fp_search);
 		printf("%s", buf);
+		rep++;
 	}
+
+	printf("rep %d\n", rep);
+	
+	struct stat fileInfo2;
+	if (stat(tempPath, &fileInfo2) != 0) {
+		perror("stat()");
+	}
+	size_t s = fileInfo2.st_size;
+	if (fileInfo2.st_size == 0) {
+		printf("\"%s\" not found in %s\n", search, path);
+	}
+
 	execl("/bin/rm", "rm", tempPath, NULL);
 
 	if (fclose(fp) != 0) {
