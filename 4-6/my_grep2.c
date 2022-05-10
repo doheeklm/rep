@@ -7,7 +7,7 @@
 #include <sys/stat.h> //stat()
 #include <stdlib.h> //exit()
 
-enum { LINES_PER_CHILD = 10, BUFSIZE = 255 };
+enum { LINES_PER_CHILD = 20, BUFSIZE = 255 };
 
 int main(int argc, char *argv[])
 {
@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
 	int cnt = 0;
 	int point[nChild];
 
+	/* 파일포인터 위치 확인 */
 	while ((fgets(buffer, sizeof(buffer), fp_init)) != NULL) {
 		if (a % LINES_PER_CHILD == 0) {
 			point[cnt] = (int)ftell(fp_init);
@@ -110,12 +111,12 @@ int main(int argc, char *argv[])
 				/* 문자열 검색결과 임시 파일에 저장 */
 				if (i == 0) {
 					if (strstr(buffer, search) != NULL) {
-						fprintf(fp_temp, "%d: %s", lineCheck + (i * LINES_PER_CHILD) + 1, buffer);
+						fprintf(fp_temp, "%d:%s", lineCheck + (i * LINES_PER_CHILD) + 1, buffer);
 					}
 				}
 				else {
 					if (strstr(buffer, search) != NULL) {
-						fprintf(fp_temp, "%d: %s", lineCheck + (i * LINES_PER_CHILD) + 2, buffer);
+						fprintf(fp_temp, "%d:%s", lineCheck + (i * LINES_PER_CHILD) + 2, buffer);
 					}
 				}
 
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	
+	int fileSize[nChild];
 
 	/* 임시 파일들 읽기 및 삭제 */
 	for (i = 0; i < nChild; i++) {
@@ -176,7 +177,8 @@ int main(int argc, char *argv[])
 		if (stat(filename, &s2) == -1) {
 			perror("stat()");
 		}
-		printf("file size %ld\n", s2.st_size);
+		fileSize[i] = (int)s2.st_size;
+		printf("file size %d\n", fileSize[i]);
 
 		while (feof(fp_final) == 0) {
 			memset(buffer, 0, sizeof(buffer));
@@ -189,6 +191,18 @@ int main(int argc, char *argv[])
 		}
 
 		unlink(filename);
+	}
+
+	for (i = 0; i < nChild; i++) {
+		if (fileSize[i] != 0) {
+			printf("break\n");
+			break;
+		}
+		else {
+			if ((i == nChild - 1) && (fileSize[i] == 0)) {
+				printf("\"%s\" not found in %s\n", search, path);
+			}
+		}
 	}
 
 	return 0;
