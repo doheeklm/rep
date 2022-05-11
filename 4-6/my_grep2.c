@@ -56,10 +56,17 @@ int main(int argc, char *argv[])
 
 	/* 파일포인터 위치 확인 */
 	while ((fgets(buffer, sizeof(buffer), fp_init)) != NULL) {
-		if (a % LINES_PER_CHILD == 0) {
-			point[cnt] = (int)ftell(fp_init);
-			printf("%d ", point[cnt]);
+		if (a == 0) {
+			point[cnt] = 0;	
+			printf("%d줄 파일포인터 %d\n", a, point[cnt]);
 			cnt++;
+		}
+		else {
+			if (a % LINES_PER_CHILD == LINES_PER_CHILD - 1) {
+				point[cnt] = (int)ftell(fp_init);
+				printf("%d줄 파일포인터 %d\n", a, point[cnt]);
+				cnt++;
+			}
 		}
 		a++;
 	}
@@ -78,9 +85,9 @@ int main(int argc, char *argv[])
 
 		if (pid[i] == 0) { /* 자식 프로세스 */
 			printf("[%d 자식 프로세스]\n", getpid());
-
-			int lineCheck = 0;
-
+			
+			int lineCheck = 1;
+			
 			FILE* fp;
 			fp = fopen(path, "r");
 			if (fp == NULL) {
@@ -88,12 +95,7 @@ int main(int argc, char *argv[])
 			}
 
 			/* 파일 포인터 위치 */
-			if (i == 0) {
-				fseek(fp, 0, SEEK_SET);
-			}
-			else {
-				fseek(fp, point[i], SEEK_SET);
-			}
+			fseek(fp, point[i], SEEK_SET);
 
 			FILE* fp_temp;
 			snprintf(filename, sizeof(filename), "./temp%d.txt", i);
@@ -103,21 +105,14 @@ int main(int argc, char *argv[])
 			}
 
 			while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-				/* 10줄 이상 읽으면 반복문 중지 */
-				if (lineCheck >= LINES_PER_CHILD) {
+				/* 20줄 이상 읽으면 반복문 중지 */
+				if (lineCheck > LINES_PER_CHILD) {
 					break;
 				}
-
-				/* 문자열 검색결과 임시 파일에 저장 */
-				if (i == 0) {
-					if (strstr(buffer, search) != NULL) {
-						fprintf(fp_temp, "%d:%s", lineCheck + (i * LINES_PER_CHILD) + 1, buffer);
-					}
-				}
-				else {
-					if (strstr(buffer, search) != NULL) {
-						fprintf(fp_temp, "%d:%s", lineCheck + (i * LINES_PER_CHILD) + 2, buffer);
-					}
+				
+				/* 문자열 검색 후 저장 */
+				if (strstr(buffer, search) != NULL) {
+					fprintf(fp_temp, "%d:%s", lineCheck + (i * LINES_PER_CHILD) , buffer);
 				}
 
 				lineCheck++;
@@ -142,15 +137,6 @@ int main(int argc, char *argv[])
 
 	printf("[%d 프로세스]\n", getpid());
 
-	/*
-	int status = 0;
-	while (wait(&status) != -1) {
-		if (WIFEXITED(status) != 0) {
-			printf("정상 종료\n");
-		}
-	};
-	*/
-
 	/* 자식 프로세스 종료 회수 */
 	int status = 0;
 	for (i = 0; i < nChild; i++) {
@@ -162,7 +148,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	int fileSize[nChild];
+	printf("\n");
+
+	int fileSize;
 
 	/* 임시 파일들 읽기 및 삭제 */
 	for (i = 0; i < nChild; i++) {
@@ -177,13 +165,15 @@ int main(int argc, char *argv[])
 		if (stat(filename, &s2) == -1) {
 			perror("stat()");
 		}
-		fileSize[i] = (int)s2.st_size;
-		printf("file size %d\n", fileSize[i]);
+		fileSize = (int)s2.st_size;
+		printf("file size %d\n", fileSize);
+		
+		fileSize += fileSize;
 
-		while (feof(fp_final) == 0) {
-			memset(buffer, 0, sizeof(buffer));
-			fread(buffer, sizeof(buffer), 1, fp_final);
-			printf("%s", buffer);
+		memset(buffer, 0, sizeof(buffer));
+
+		while (fgets(buffer, sizeof(buffer), fp_final) != NULL) {
+			printf("%s", buffer);	
 		}
 
 		if (fclose(fp_final) != 0) {
@@ -193,16 +183,8 @@ int main(int argc, char *argv[])
 		unlink(filename);
 	}
 
-	for (i = 0; i < nChild; i++) {
-		if (fileSize[i] != 0) {
-			printf("break\n");
-			break;
-		}
-		else {
-			if ((i == nChild - 1) && (fileSize[i] == 0)) {
-				printf("\"%s\" not found in %s\n", search, path);
-			}
-		}
+	if (fileSize == 0) {
+		printf("\"%s\" not found in %s\n", search, path);
 	}
 
 	return 0;
