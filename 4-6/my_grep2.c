@@ -56,12 +56,12 @@ int main(int argc, char *argv[])
 
 	/* 파일포인터 위치 확인 */
 	while ((fgets(buffer, sizeof(buffer), fp_init)) != NULL) {
-		if (a == 0) {
+		if (a == 0) { //0줄일때
 			point[cnt] = 0;	
 			printf("%d줄 파일포인터 %d\n", a, point[cnt]);
 			cnt++;
 		}
-		else {
+		else { //19, 39, 59
 			if (a % LINES_PER_CHILD == LINES_PER_CHILD - 1) {
 				point[cnt] = (int)ftell(fp_init);
 				printf("%d줄 파일포인터 %d\n", a, point[cnt]);
@@ -150,7 +150,8 @@ int main(int argc, char *argv[])
 
 	printf("\n");
 
-	int fileSize;
+	int size = 0;
+	int total = 0;
 
 	/* 임시 파일들 읽기 및 삭제 */
 	for (i = 0; i < nChild; i++) {
@@ -165,12 +166,11 @@ int main(int argc, char *argv[])
 		if (stat(filename, &s2) == -1) {
 			perror("stat()");
 		}
-		fileSize = (int)s2.st_size;
-		printf("file size %d\n", fileSize);
 		
-		fileSize += fileSize;
-
-		memset(buffer, 0, sizeof(buffer));
+		size = (int)s2.st_size;
+		printf("file size %d\n", size);
+		
+		total += size;
 
 		while (fgets(buffer, sizeof(buffer), fp_final) != NULL) {
 			printf("%s", buffer);	
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 		unlink(filename);
 	}
 
-	if (fileSize == 0) {
+	if (total == 0) {
 		printf("\"%s\" not found in %s\n", search, path);
 	}
 
