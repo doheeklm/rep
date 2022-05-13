@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	int status;
+	void *status;
 	/* 각 스레드 종료를 기다림 */
 	for (i = 0; i < nThread; i++) {
 		if (pthread_join(p_thread[i], (void *)&status) != 0) {
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 
-		printf("Thread #%d [%d]\n", i, status);
+		printf("Thread #%d [%p]\n", i, status);
 	}
 	
 	char name[50];
