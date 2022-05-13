@@ -161,7 +161,8 @@ int main(int argc, char *argv[])
 	}
 	
 	char name[50];
-	int fileSize;
+	int size = 0;
+	int total = 0;
 
 	/* 최종 결과 화면 출력 및 임시 파일들 삭제 */
 	for (i = 0; i < nThread; i++) {
@@ -179,8 +180,10 @@ int main(int argc, char *argv[])
 			perror("stat()");
 			exit(EXIT_FAILURE);
 		}
-		fileSize = (int)s2.st_size;
-		fileSize += fileSize;
+		
+		size = (int)s2.st_size;
+		printf("file size %d\n", size);
+		total += size;
 
 		while (fgets(buffer, sizeof(buffer), fp_final) != NULL) {
 			printf("%s", buffer);
@@ -194,7 +197,8 @@ int main(int argc, char *argv[])
 		unlink(name);
 	}
 
-	if (fileSize == 0) {
+	printf("total %d\n", total);
+	if (total == 0) {
 		printf("\"%s\" not found in %s\n", search, path);
 	}
 
