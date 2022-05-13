@@ -33,6 +33,7 @@ void *t_function(void *data)
 	fp = fopen(path, "r");
 	if (fp == NULL) {
 		perror("fopen()");
+		exit(EXIT_FAILURE);
 	}
 	fseek(fp, temp->ptr, SEEK_SET);
 
@@ -40,6 +41,7 @@ void *t_function(void *data)
 	fp_temp = fopen(filename, "w+");
 	if (fp_temp == NULL) {
 		perror("fopen()");
+		exit(EXIT_FAILURE);
 	}
 
 	char buf[BUFSIZE];
@@ -49,7 +51,6 @@ void *t_function(void *data)
 			break;
 		}
 		if (strstr(buf, search) != NULL) {
-			//printf("%d:%s", lineCheck + (temp->cnt * LINES_PER_CHILD), buf);
 			fprintf(fp_temp, "%d:%s", lineCheck + (temp->cnt * LINES_PER_CHILD), buf);
 		}
 		lineCheck++;
@@ -57,12 +58,16 @@ void *t_function(void *data)
 
 	if (fclose(fp) != 0) {
 		perror("fclose()");
+		exit(EXIT_FAILURE);
 	}
 	if (fclose(fp_temp) != 0) {
 		perror("fclose()");
+		exit(EXIT_FAILURE);
 	}
+
+	pthread_exit((void *)&temp->cnt);
 	
-	return NULL;
+	//return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -86,6 +91,7 @@ int main(int argc, char *argv[])
 	fp_init = fopen(argv[2], "r");
 	if (fp_init == NULL) {
 		perror("fopen()");
+		exit(EXIT_FAILURE);
 	}
 
 	/* 라인 갯수 */
@@ -133,6 +139,7 @@ int main(int argc, char *argv[])
 
 	if (fclose(fp_init) != 0) {
 		perror("fclose()");
+		exit(EXIT_FAILURE);
 	}
 
 	/* 스레드 */
@@ -152,12 +159,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	int status;
 	/* 각 스레드 종료를 기다림 */
 	for (i = 0; i < nThread; i++) {
-		if (pthread_join(p_thread[i], NULL) != 0) {
+		if (pthread_join(p_thread[i], (void *)&status) != 0) {
 			perror("pthread_join()");
 			exit(EXIT_FAILURE);
 		}
+
+		printf("Thread #%d [%d]\n", i, status);
 	}
 	
 	char name[50];
