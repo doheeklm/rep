@@ -24,7 +24,9 @@ int OffLimits()
 	if (balance < MAX_BALANCE) {
 		return IN_RANGE;
 	}
-	
+
+	printf("잔고가 10,000원을 초과했습니다. 프로그램 종료\n");
+
 	return OUT_OF_RANGE;
 }
 
@@ -41,11 +43,19 @@ void *Balance(void *data)
 		}
 	
 #if DEBUG
-		printf("[ Thread #%d ]\n", d.cnt);
+		printf("스레드 [%d]\n", d.cnt);
 #endif
 
 		if (d.cnt == 3 || d.cnt == 4) { //잔고 증가&감소시키는 스레드 2개
 			balance += d.amount;
+#if DEBUG
+			if (d.amount > 0) {
+				printf("+%d\n", d.amount);
+			}
+			else if (d.amount < 0) {
+				printf("%d\n", d.amount);
+			}
+#endif
 		}
 		else { //잔고 출력하는 스레드 3개
 			printf("%d원\n", balance);
