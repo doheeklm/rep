@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h> //exit() malloc() free()
+#include <errno.h> //errno
 #include <string.h> //strerror_r()
 #include <unistd.h> //sleep()
 
@@ -19,10 +20,10 @@ typedef struct DATA{
 int OffLimits()
 {
 	if (balance < MAX_BALANCE) {
-		return IN_RANGE;
+		return IN_RANGE; //-1
 	}
 
-	return OUT_OF_RANGE;
+	return OUT_OF_RANGE; //0
 }
 
 void *Balance(void *data)
@@ -32,7 +33,7 @@ void *Balance(void *data)
 	while (balance < MAX_BALANCE) {
 
 		if (pthread_mutex_lock(&mutex) != 0) {
-			perror("mutex lock");
+			fprintf(stderr, "errno[%d]", errno);
 			return NULL;
 		}
 
@@ -50,7 +51,7 @@ void *Balance(void *data)
 		}
 	
 		if (pthread_mutex_unlock(&mutex) != 0) {
-			perror("mutex unlock");
+			fprintf(stderr, "errno[%d]", errno);
 			return NULL;
 		}
 
@@ -75,7 +76,7 @@ int main()
 	data = (struct DATA *)malloc(sizeof(struct DATA) * NUM_THREAD);
 
 	if (pthread_mutex_init(&mutex, NULL) != 0) {
-		perror("mutex init");
+		fprintf(stderr, "errno[%d]", errno);
 		free(data);
 		exit(EXIT_FAILURE);
 	}
@@ -94,7 +95,7 @@ int main()
 		}
 		
 		if (pthread_create(&p_thread[i], NULL, Balance, (void *)&data[i]) != 0) {
-			perror("thread create");
+			fprintf(stderr, "errno[%d]", errno);
 			free(data);
 			exit(EXIT_FAILURE);
 		}
@@ -102,13 +103,14 @@ int main()
 
 	for (i = 0; i < NUM_THREAD; i++) {
 		if (pthread_join(p_thread[i], (void **)NULL) != 0) {
-			perror("thread join");
+			fprintf(stderr, "errno[%d]", errno);
 			free(data);
 			exit(EXIT_FAILURE);
 		}
 	}
 	
 	if (pthread_mutex_destroy(&mutex) != 0) {
+		fprintf(stderr, "errno[%d]", errno);
 		perror("mutex destroy");
 		free(data);
 		exit(EXIT_FAILURE);
