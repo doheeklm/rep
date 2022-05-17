@@ -39,6 +39,7 @@ void *Balance(void *data)
 
 		if (d.count == 3 || d.count == 4) {
 			balance += d.amount;
+
 			if (d.amount > 0) {
 				printf("스레드[%d] +%d\n", d.count, d.amount);
 			}
@@ -76,8 +77,8 @@ int main()
 	data = (struct DATA *)malloc(sizeof(struct DATA) * NUM_THREAD);
 
 	if (pthread_mutex_init(&mutex, NULL) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
 		free(data);
+		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
 
@@ -95,24 +96,23 @@ int main()
 		}
 		
 		if (pthread_create(&p_thread[i], NULL, Balance, (void *)&data[i]) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
 			free(data);
+			fprintf(stderr, "errno[%d]", errno);
 			exit(EXIT_FAILURE);
 		}
 	}
 
 	for (i = 0; i < NUM_THREAD; i++) {
 		if (pthread_join(p_thread[i], (void **)NULL) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
 			free(data);
+			fprintf(stderr, "errno[%d]", errno);
 			exit(EXIT_FAILURE);
 		}
 	}
 	
 	if (pthread_mutex_destroy(&mutex) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		perror("mutex destroy");
 		free(data);
+		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
 
