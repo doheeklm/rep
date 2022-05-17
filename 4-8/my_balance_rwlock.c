@@ -25,6 +25,8 @@ int OffLimits()
 		return IN_RANGE;
 	}
 	
+	printf("잔고가 10,000원을 초과했습니다. 프로그램 종료\n");
+
 	return OUT_OF_RANGE;
 }
 
@@ -33,16 +35,11 @@ void *Balance(void *data)
 	DATA d = *(DATA *)data;
 	
 	while (balance < MAX_BALANCE) {
-		if (OffLimits() == OUT_OF_RANGE) {
-			exit(EXIT_SUCCESS);
-		}
-
 #if DEBUG
-		printf("[ Thread #%d ]\n", d.cnt);
+		printf("스레드 [%d]\n", d.cnt);
 #endif
 
 		if (d.cnt == 3 || d.cnt == 4) { //잔고 증가&감소시키는 스레드 2개
-			
 			if (pthread_rwlock_wrlock(&rwlock) != 0) {
 				if (strerror_r(errno, errmsg, ERR_BUFSIZE) != 0) {
 					fprintf(stderr, "errno[%d] : %s\n", errno, errmsg);
@@ -51,7 +48,14 @@ void *Balance(void *data)
 			}
 
 			balance += d.amount;
-
+#if DEBUG
+			if (d.amount > 0) {
+				printf("+%d\n", d.amount);
+			}
+			else if (d.amount < 0) {
+				printf("%d\n", d.amount);
+			}
+#endif
 			if (pthread_rwlock_unlock(&rwlock) != 0) {
 				if (strerror_r(errno, errmsg, ERR_BUFSIZE) != 0) {
 					fprintf(stderr, "errno[%d] : %s\n", errno, errmsg);
@@ -77,6 +81,10 @@ void *Balance(void *data)
 		}
 		
 		sleep(d.time);
+	}
+
+	if (OffLimits() == OUT_OF_RANGE) {
+		exit(EXIT_SUCCESS);
 	}
 
 	return NULL;
