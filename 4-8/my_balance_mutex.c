@@ -125,25 +125,7 @@ void *Check(void *data)
 			fprintf(stderr, "errno[%d]", errno);
 			return NULL;
 		}
-
-		while (1) {
-			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-
-			deltaTime = end.tv_sec - start.tv_sec;
-			//printf("delta %ld\n", deltaTime);
-			if (deltaTime >= 1) {
-				break;
-			}
-
-			if (nanosleep(&sleep, NULL) != 0) { //sleep 시간만큼 또는 시그널을 받을 때까지 스레드를 블록시킴. 만약 시그널에 의해 스레드가 깨어나고 2번째 인자가 NULL이 아니라면, 2번째 인자에 남은 시간을 담아줌.
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-		}
-		
+	
 		//////////* mutex lock *//////////
 		if (pthread_mutex_lock(&mutex) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
@@ -151,7 +133,6 @@ void *Check(void *data)
 		}
 	
 		if (balance >= MAX_BALANCE) {
-			printf("알림: 스레드 [%d] - 잔고 10000 이상. 프로그램 종료\n", d.count);
 			if (pthread_mutex_unlock(&mutex) != 0) {
 				fprintf(stderr, "errno[%d]", errno);
 				return NULL;
@@ -166,6 +147,24 @@ void *Check(void *data)
 			return NULL;
 		}
 		///////////////////////////////////
+
+		while (1) {
+			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+
+			deltaTime = end.tv_sec - start.tv_sec;
+			//printf("delta %ld\n", deltaTime);
+			if (deltaTime >= 1) {
+				break;
+			}
+
+			if (nanosleep(&sleep, NULL) != 0) { 
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+		}
 	}
 
 	return NULL;
@@ -187,28 +186,6 @@ void *Update(void *data)
 			return NULL;
 		}
 
-		while (1) {
-			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-
-			deltaTime = end.tv_sec - start.tv_sec;
-			//printf("delta %ld\n", deltaTime);
-
-			if (d.amount < 0 && deltaTime >= 2) {
-				break;
-			}
-			else if (d.amount > 0 && deltaTime >= 1) {
-				break;
-			}
-
-			if (nanosleep(&sleep, NULL) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-		}
-		
 		//////////* mutex lock *//////////
 		if (pthread_mutex_lock(&mutex) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
@@ -216,7 +193,6 @@ void *Update(void *data)
 		}
 
 		if (balance >= MAX_BALANCE) {
-			printf("알림: 스레드 [%d] - 잔고 10000 이상. 프로그램 종료\n", d.count);
 			if (pthread_mutex_unlock(&mutex) != 0) {
 				fprintf(stderr, "errno[%d]", errno);
 				return NULL;
@@ -238,6 +214,28 @@ void *Update(void *data)
 			return NULL;
 		}
 		///////////////////////////////////
+	
+		while (1) {
+			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+
+			deltaTime = end.tv_sec - start.tv_sec;
+			//printf("delta %ld\n", deltaTime);
+
+			if (d.amount < 0 && deltaTime >= 2) {
+				break;
+			}
+			else if (d.amount > 0 && deltaTime >= 1) {
+				break;
+			}
+
+			if (nanosleep(&sleep, NULL) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+		}
 	}
 
 	return NULL;
