@@ -126,6 +126,28 @@ void *Check(void *data)
 			return NULL;
 		}
 
+		//////////* READ lock *//////////
+		if (pthread_rwlock_rdlock(&rwlock) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			return NULL;
+		}
+
+		if (balance >= MAX_BALANCE) {
+			if (pthread_rwlock_unlock(&rwlock) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+			return NULL;
+		}
+
+		printf("스레드[%d] %d원\n", d.count, balance);
+
+		if (pthread_rwlock_unlock(&rwlock) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			return NULL;
+		}
+		///////////////////////////////////
+		
 		while (1) {
 			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
 				fprintf(stderr, "errno[%d]", errno);
@@ -143,29 +165,6 @@ void *Check(void *data)
 				return NULL;
 			}
 		}
-
-		//////////* READ lock *//////////
-		if (pthread_rwlock_rdlock(&rwlock) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			return NULL;
-		}
-
-		if (balance >= MAX_BALANCE) {
-			printf("알림: 스레드 [%d] - 잔고 10000 이상. 프로그램 종료\n", d.count);
-			if (pthread_rwlock_unlock(&rwlock) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-			return NULL;
-		}
-
-		printf("스레드[%d] %d원\n", d.count, balance);
-
-		if (pthread_rwlock_unlock(&rwlock) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			return NULL;
-		}
-		///////////////////////////////////
 	}
 
 	return NULL;
@@ -186,6 +185,35 @@ void *Update(void *data)
 			fprintf(stderr, "errno[%d]", errno);
 			return NULL;
 		}
+
+		//////////* WRITE lock *//////////
+		if (pthread_rwlock_wrlock(&rwlock) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			return NULL;
+		}
+
+		if (balance >= MAX_BALANCE) {
+			if (pthread_rwlock_unlock(&rwlock) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				return NULL;
+			}
+			return NULL;
+		}
+
+		balance += d.amount;
+
+		if (d.amount > 0) {
+			printf("스레드[%d] +%d\n", d.count, d.amount);
+		}
+		else if (d.amount < 0) {
+			printf("스레드[%d] %d\n", d.count, d.amount);
+		}
+
+		if (pthread_rwlock_unlock(&rwlock) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			return NULL;
+		}
+		///////////////////////////////////
 
 		while (1) {
 			if (clock_gettime(CLOCK_MONOTONIC, &end) != 0) {
@@ -209,35 +237,6 @@ void *Update(void *data)
 			}
 		}
 
-		//////////* WRITE lock *//////////
-		if (pthread_rwlock_wrlock(&rwlock) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			return NULL;
-		}
-
-		if (balance >= MAX_BALANCE) {
-			printf("알림: 스레드 [%d] - 잔고 10000 이상. 프로그램 종료\n", d.count);
-			if (pthread_rwlock_unlock(&rwlock) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				return NULL;
-			}
-			return NULL;
-		}
-
-		balance += d.amount;
-
-		if (d.amount > 0) {
-			printf("스레드[%d] +%d\n", d.count, d.amount);
-		}
-		else if (d.amount < 0) {
-			printf("스레드[%d] %d\n", d.count, d.amount);
-		}
-
-		if (pthread_rwlock_unlock(&rwlock) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			return NULL;
-		}
-		///////////////////////////////////
 	}
 
 	return NULL;
