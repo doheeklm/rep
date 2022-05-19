@@ -1,3 +1,4 @@
+/* mutex lock ver. */
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h> //exit() malloc() free()
@@ -29,8 +30,17 @@ int main()
 
 	DATA *data_ch;
 	data_ch = (struct DATA *)malloc(sizeof(struct DATA) * NUM_CHECK);
+	if (data_ch == NULL) {
+		fprintf(stderr, "errno[%d]", errno);
+		exit(EXIT_FAILURE);
+	}
+
 	DATA *data_up;
 	data_up = (struct DATA *)malloc(sizeof(struct DATA) * NUM_UPDATE);
+	if (data_up == NULL) {
+		fprintf(stderr, "errno[%d]", errno);
+		exit(EXIT_FAILURE);
+	}
 
 	if (pthread_mutex_init(&mutex, NULL) != 0) {
 		free(data_ch);
@@ -128,7 +138,7 @@ void *Check(void *data)
 				break;
 			}
 
-			if (nanosleep(&sleep, NULL) != 0) {
+			if (nanosleep(&sleep, NULL) != 0) { //sleep 시간만큼 또는 시그널을 받을 때까지 스레드를 블록시킴. 만약 시그널에 의해 스레드가 깨어나고 2번째 인자가 NULL이 아니라면, 2번째 인자에 남은 시간을 담아줌.
 				fprintf(stderr, "errno[%d]", errno);
 				return NULL;
 			}
