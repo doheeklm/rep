@@ -6,7 +6,7 @@
 #include <string.h> //strstr()
 #include <errno.h>
 
-enum { LINES_PER_CHILD = 20, BUFSIZE = 255 };
+enum { LINES_PER_CHILD = 20, BUFSIZE = 500 };
 
 char* search;
 char* path;
@@ -33,7 +33,7 @@ void *t_function(void *data)
 	fp = fopen(path, "r");
 	if (fp == NULL) {
 		perror("fopen()");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 	fseek(fp, temp->ptr, SEEK_SET);
 
@@ -41,7 +41,11 @@ void *t_function(void *data)
 	fp_temp = fopen(filename, "w+");
 	if (fp_temp == NULL) {
 		perror("fopen()");
-		exit(EXIT_FAILURE);
+		if (fclose(fp) != 0) {
+			perror("fclose()");
+			return NULL;
+		}
+		return NULL;
 	}
 
 	char buf[BUFSIZE];
@@ -58,16 +62,14 @@ void *t_function(void *data)
 
 	if (fclose(fp) != 0) {
 		perror("fclose()");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 	if (fclose(fp_temp) != 0) {
 		perror("fclose()");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 
-	pthread_exit((void *)&temp->cnt);
-	
-	//return NULL;
+	return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -129,7 +131,7 @@ int main(int argc, char *argv[])
 		}
 		else {
 			if (a % LINES_PER_CHILD == LINES_PER_CHILD - 1) {
-				point[b] = (int)ftell(fp_init);
+				point[b] = (int)ftell(fp_init) ;
 				//printf("%d줄 파일포인터 %d\n", a, point[b]);
 				b++;
 			}
@@ -159,15 +161,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	void *status;
+//	void *status;
 	/* 각 스레드 종료를 기다림 */
 	for (i = 0; i < nThread; i++) {
-		if (pthread_join(p_thread[i], (void *)&status) != 0) {
+		if (pthread_join(p_thread[i], (void *)NULL) != 0) {
 			perror("pthread_join()");
 			exit(EXIT_FAILURE);
 		}
 
-		printf("Thread #%d [%p]\n", i, status);
+//		printf("Thread #%d [%p]\n", i, status);
 	}
 	
 	char name[50];
@@ -192,7 +194,7 @@ int main(int argc, char *argv[])
 		}
 		
 		size = (int)s2.st_size;
-		printf("file size %d\n", size);
+		printf("\n[ file size %d ]\n", size);
 		total += size;
 
 		while (fgets(buffer, sizeof(buffer), fp_final) != NULL) {
