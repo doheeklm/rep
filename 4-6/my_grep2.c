@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
 	fp_init = fopen(path, "r");
 	if (fp_init == NULL) {
 		perror("fopen()");
+		exit(EXIT_FAILURE);
 	}
 
 	char buffer[BUFSIZE];
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
 	/* 파일 닫기 */
 	if (fclose(fp_init) != 0) {
 		perror("fclose()");
+		exit(EXIT_FAILURE);
 	}
 	
  	char filename[50];
@@ -92,6 +94,7 @@ int main(int argc, char *argv[])
 			fp = fopen(path, "r");
 			if (fp == NULL) {
 				perror("fopen()");
+				exit(EXIT_FAILURE);
 			}
 
 			/* 파일 포인터 위치 */
@@ -102,6 +105,7 @@ int main(int argc, char *argv[])
 			fp_temp = fopen(filename, "w+");
 			if (fp_temp == NULL) {
 				perror("fopen()");
+				exit(EXIT_FAILURE);
 			}
 
 			while (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -120,9 +124,11 @@ int main(int argc, char *argv[])
 
 			if (fclose(fp) != 0) {
 				perror("fclose()");
+				exit(EXIT_FAILURE);
 			}
 			if (fclose(fp_temp) != 0) {
 				perror("fclose()");
+				exit(EXIT_FAILURE);
 			}
 
 			exit(0);
@@ -132,6 +138,7 @@ int main(int argc, char *argv[])
 		}
 		else if (pid[i] == -1) {
 			perror("fork()");
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -142,6 +149,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < nChild; i++) {
 		if (waitpid(pid[i], &status, 0) == -1) {
 			perror("waitpid()");
+			exit(EXIT_FAILURE);
 		}
 		if (WIFEXITED(status) != 0) {
 			printf("[%d 자식 프로세스 정상 종료]\n", pid[i]);
@@ -160,11 +168,13 @@ int main(int argc, char *argv[])
 		fp_final = fopen(filename, "r");
 		if (fp_final == NULL) {
 			perror("fopen()");
+			exit(EXIT_FAILURE);
 		}
 
 		struct stat s2;
 		if (stat(filename, &s2) == -1) {
 			perror("stat()");
+			exit(EXIT_FAILURE);
 		}
 		
 		size = (int)s2.st_size;
@@ -178,6 +188,7 @@ int main(int argc, char *argv[])
 
 		if (fclose(fp_final) != 0) {
 			perror("fclose()");
+			exit(EXIT_FAILURE);
 		}
 
 		unlink(filename);
