@@ -4,69 +4,82 @@
 #include <errno.h> //errno
 #include <string.h> //strcmp()
 #include <stdlib.h> //malloc() free()
+#include <stdio_ext.h> //__fpurge()
+#include <unistd.h> //sleep()
+
+pthread_mutex_t mutex;
 
 #define snprintf_nowarnings(...) (snprintf(__VA_ARGS__) < 0 ? abort() : (void)0)
 
-enum { Q_SIZE = 2, EMPTY = 0, FULL = 0, FALSE = -1 };
+enum { EMPTY = 0, NOT_EMPTY = -1,
+		ENQ = 0, ENQ_FAIL = -1,
+		DEQ = 0, DEQ_FAIL = -1 };
 
 typedef struct _INFO {
 	char name[13];
 	char phone[14];
 	char address[151];
+	struct _INFO *next;
 } Info;
 
 typedef struct _QUEUE {
-	int front;
-	int rear;
-	Info *info;
+	Info *front;
+	Info *rear;
+	int count;
 } Queue;
 
+Queue q;
+
+void ClearStdin(char* c);
 void Init(Queue *q);
-void Enqueue(Queue *q, Info temp);
-Info Dequeue(Queue *q);
+int Enqueue(Queue *q, Info info);
+int Dequeue(Queue *q, Info *info);
 int isEmpty(Queue *q);
 void *FileWrite(void *data);
 
 int main()
-{	
-	Queue q;
+{
 	Init(&q);
-	
+
+	pthread_t thread_write;
+
+	if (pthread_mutex_init(&mutex, NULL) != 0) {
+		fprintf(stderr, "errno[%d]", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	if (pthread_create(&thread_write, NULL, FileWrite, (void *)&q) != 0) {
+		fprintf(stderr, "errno[%d]", errno);
+		exit(EXIT_FAILURE);
+	}
+
 	Info info;
 
 	while (1) {
 		memset(&info, 0, sizeof(info));
-
 		char temp[200];
 
 		printf("Name: ");
 		if (fgets(temp, sizeof(temp), stdin) == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			//thread join
-			//return
+			break;
 		}
-	
+		
 		if (strcmp("exit\n", temp) == 0) {
 			printf("입력을 종료합니다.\n");
 			break;
 		}
-
-		size_t i = 0;
-		size_t j = 0;
-		for (i = 0; i < sizeof(temp); i++) {
-			if (temp[i] != ' ') {
-				temp[j] = temp[i];
-				j++;
-			}
-		}
+		
+		ClearStdin(temp);
 		snprintf_nowarnings(info.name, 13, "%s", temp);
 
 		printf("Phone Num: ");
 		if (fgets(temp, sizeof(temp), stdin) == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			//thread join
-			//return
+			break;
 		}
+
+		ClearStdin(temp);
 		snprintf_nowarnings(info.phone, 14, "%s", temp);
 		
 		if ((info.phone[3] != '-') || (info.phone[8] != '-')) {
@@ -78,22 +91,41 @@ int main()
 		printf("Address: ");
 		if (fgets(temp, sizeof(temp), stdin) == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			//thread join
-			//return
+			break;
 		}
+
+		ClearStdin(temp);
 		snprintf_nowarnings(info.address, 151, "%s", temp);
 
-		Enqueue(&q, info);
-	}
+		if (pthread_mutex_lock(&mutex) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
 
-	pthread_t thread_write;
+		if (Enqueue(&q, info) == ENQ_FAIL) {
+			if (pthread_mutex_unlock(&mutex) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				break;
+			}
+			break;
+		}
 
-	if (pthread_create(&thread_write, NULL, FileWrite, (void *)NULL) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		if (pthread_mutex_unlock(&mutex) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
 	}
 
 	if (pthread_join(thread_write, (void **)NULL) != 0) {
+		if (pthread_mutex_destroy(&mutex) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			exit(EXIT_FAILURE);
+		}
+		fprintf(stderr, "errno[%d]", errno);
+		exit(EXIT_FAILURE);
+	}
+	
+	if (pthread_mutex_destroy(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
@@ -101,63 +133,139 @@ int main()
 	return 0;
 }
 
+void ClearStdin(char* c)
+{
+	if (c == NULL) {
+		return;
+	}
+	if (c[strlen(c) - 1] == '\n') {
+		c[strlen(c) - 1] = '\0';
+	}
+	__fpurge(stdin);
+}
+
 void Init(Queue *q)
 {
-	q->front = 0;
-	q->rear = 0;
-	
-	q->info = (Info *)malloc(sizeof(Info *) * Q_SIZE);
-	if (q->info == NULL) {
+	q->front = NULL;
+	q->rear = NULL;
+	q->count = 0;
+}
+
+int Enqueue(Queue *q, Info info)
+{
+	Info *i = (Info *)malloc(sizeof(Info));
+	if (i == NULL) {
 		fprintf(stderr, "errno[%d]", errno);
-		//thread join
-		//return
+		return ENQ_FAIL;
 	}
-}
 
-void Enqueue(Queue *q, Info temp)
-{
-	q->rear = (q->rear + 1) % Q_SIZE;
-	q->info[q->rear] = temp;
-}
+	strncpy(i->name, info.name, sizeof(info.name));
+	strncpy(i->phone, info.phone, sizeof(info.phone));
+	strncpy(i->address, info.address, sizeof(info.address));
+	i->next = NULL;
 
-Info Dequeue(Queue *q)
-{
 	if (isEmpty(q) == EMPTY) {
-		return NULL;
+		q->front = i;
+		q->rear = i;
 	}
 	else {
-		q->front = (q->front + 1) % Q_SIZE;
+		q->rear->next = i;
+		q->rear = i;
 	}
+
+	printf("Current Q count[%d]\nQ->FRONT[%s|%s|%s]\nQ->REAR[%s|%s|%s]\n",
+			q->count,
+			q->front->name, q->front->phone, q->front->address,
+			q->rear->name, q->rear->phone, q->rear->address);
+
+	q->count++;
+
+	return ENQ;
+}
+
+int Dequeue(Queue *q, Info *info)
+{
+	if (isEmpty(q) == EMPTY) {
+		return DEQ_FAIL;
+	}
+
+	Info *temp = q->front;
+	q->front = q->front->next;
+
+	strncpy(info->name, temp->name, sizeof(temp->name));
+	strncpy(info->phone, temp->phone, sizeof(temp->phone));
+	strncpy(info->address, temp->address, sizeof(temp->address));
+	info->next = NULL;
+
+	free(temp);
+	q->count--;
+
+	return DEQ;
 }
 
 int isEmpty(Queue *q)
 {
-	if (q->front == q->rear) {
+	if (q->count == 0) {
 		return EMPTY;
 	}
 	else {
-		return FALSE;
+		return NOT_EMPTY;
 	}
 }
 
 void *FileWrite(void *data)
 {
-	//lock 걸기
-	//Dequeue한 값을 파일에 Write
-	//lock 풀기
-
-	int i = 0;
 	while (1) {
-		printf("%d\n", i);
-
-		if (i == 10) {
-			printf("탈출\n");
+		Info *temp_info = (Info *)malloc(sizeof(Info));
+		if (temp_info == NULL) {
+			fprintf(stderr, "errno[%d]", errno);
 			break;
 		}
 
-		i++;
+		if (pthread_mutex_lock(&mutex) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
+
+		if (Dequeue(&q, temp_info) == DEQ_FAIL) {
+			if (pthread_mutex_unlock(&mutex) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				break;
+			}
+			sleep(5);
+			continue;
+		}
+
+		if (pthread_mutex_unlock(&mutex) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
+
+		FILE* fp = NULL;
+		fp = fopen("./address.txt", "a+");
+		if (fp == NULL) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
+
+		if (fwrite(temp_info, sizeof(Info), 1, fp) != 1) {
+			if (fclose(fp) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+				break;
+			}
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
+
+		printf("[...Writing File...]\n");
+
+		free(temp_info);
+
+		if (fclose(fp) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+			break;
+		}
 	}
 
 	return NULL;
 }
-
