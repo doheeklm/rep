@@ -58,22 +58,31 @@ int main()
 
 	//뮤텍스 초기화
 	if (pthread_mutex_init(&mutex, NULL) != 0) {
+		if (sem_destroy(&sem) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+		}
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
 	
 	//스레드2 생성 (인자로 포인터 변수 pInfo를 넘겨줌)
 	if (pthread_create(&tWrite, NULL, fWrite, (void *)pInfo) != 0) {
+		if (pthread_mutex_destroy(&mutex) != 0) {
+			if (sem_destroy(&sem) != 0) {
+				fprintf(stderr, "errno[%d]", errno);
+			}
+			fprintf(stderr, "errno[%d]", errno);
+		}
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
 
 	while (1) {	
-		//Info *pInfo 동적할당
+		//pInfo 동적할당
 		pInfo = (Info *)malloc(sizeof(Info));
 		if (pInfo == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			exit(EXIT_FAILURE);
+			goto EXIT;
 		}
 		
 		do {
@@ -83,16 +92,14 @@ int main()
 			//이름 입력받기
 			printf("Name: ");
 			if (fgets(pInfo->name, sizeof(pInfo->name), stdin) == NULL) {
-				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
-				break;
+				goto EXIT;
 			}
 			ClearStdin(pInfo->name);
 
 			//exit 입력받으면 프로그램 종료
 			if (strcmp(str_exit, pInfo->name) == 0) {
 				printf("입력을 종료합니다.\n");
-				free(pInfo);
 				goto EXIT;
 			}
 
@@ -101,7 +108,7 @@ int main()
 			if (fgets(pInfo->phone, sizeof(pInfo->phone), stdin) == NULL) {
 				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
-				break;
+				goto EXIT;
 			}
 			ClearStdin(pInfo->phone);
 
@@ -117,60 +124,45 @@ int main()
 		if (fgets(pInfo->address, sizeof(pInfo->address), stdin) == NULL) {
 			free(pInfo);
 			fprintf(stderr, "errno[%d]", errno);
-			break;
+			goto EXIT;
 		}
 		ClearStdin(pInfo->address);
 
 		//Enqueue - 큐에 주소록 정보 저장
 		if (Enqueue(&q, pInfo) == ENQ_FAIL) {
 			printf("Enqueue Fail\n");
-			break;
+			goto EXIT;
 		}
 		printf("<T1> [%s][%s][%s]\n", pInfo->name, pInfo->phone, pInfo->address);
 
 		//세마포어 값 1 증가
 		if (sem_post(&sem) != 0) {
-			free(pInfo);
 			fprintf(stderr, "errno[%d]", errno);
-			break;
+			goto EXIT;
 		}
 	}
 
 EXIT:
+	//세마포어 값 1 증가 안 한 상태라서 스레드2는 계속 대기중..
+	//스레드2에서 자원 회수할건 pInfo 밖에 없음
+
+	//join하기 전에 "exit"을 pInfo->name에 입력하고, 스레드2 내에서 break하는 방법??
+
+	free(pInfo);
+
 	//스레드 취소 요청
 	if (pthread_cancel(tWrite) != 0) {
-		if (pthread_mutex_destroy(&mutex) != 0) {
-			if (sem_destroy(&sem) != 0) {
-				free(pInfo);
-				fprintf(stderr, "errno[%d]", errno);
-				exit(EXIT_FAILURE);
-			}
-			free(pInfo);
-			fprintf(stderr, "errno[%d]", errno);
-			exit(EXIT_FAILURE);
-		}
-		free(pInfo);
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
 	}
 	
 	//뮤텍스 소멸
 	if (pthread_mutex_destroy(&mutex) != 0) {
-		if (sem_destroy(&sem) != 0) {
-			free(pInfo);
-			fprintf(stderr, "errno[%d]", errno);
-			exit(EXIT_FAILURE);
-		}
-		free(pInfo);
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
 	}
 
 	//세마포어 제거
 	if (sem_destroy(&sem) != 0) {
-		free(pInfo);
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
 	}
 
 	return 0;
@@ -238,14 +230,11 @@ int Dequeue(Queue *q, Info **ppInfo)
 		return DEQ_FAIL;
 	}
 
-	//pInfo의 주소를 넘겨받음
-	Info **pptemp = ppInfo;
-	
-	if (pptemp != NULL) {
-		//NULL이 아니면 pptemp에 큐의 맨앞원소를 넣어줌
-		*pptemp = q->front;
-	
-		//큐의 맨앞은 큐의 맨앞다음으로 변환
+	if (ppInfo != NULL) {
+		//큐의 맨앞 원소를 넣어줌
+		*ppInfo = q->front;
+		
+		//큐의 맨앞은 큐의 맨앞다음으로 바꿈
 		q->front = q->front->next;
 		
 		//큐 갯수 1감소
@@ -271,29 +260,14 @@ int isEmpty(Queue *q)
 	}
 }
 
-void cleanup_handler(void *arg)
-{
-	printf("clean up!\n");
-
-	free((Info *)arg);
-
-}
-
 void *fWrite(void *data)
 {
-	//취소 상태 활성화
-//	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-	//스레드 종료 시 호출될 함수
-	pthread_cleanup_push(cleanup_handler, (void *)NULL);
-	//바로 종료
-//	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-
 	while (1) {
-		//세마포어 값 1 감소
+		//세마포어 값 1 감소 (스레드2 대기상태)
 		if (sem_wait(&sem) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
 			break;
-		}
+		}		
 
 		//스레드 함수 fWrite에 받은 인자 data는 전역변수 Info *pInfo와 동일함
 		Info *ptrInfo = (Info *)data;
@@ -305,7 +279,6 @@ void *fWrite(void *data)
 		}
 
 		if (ptrInfo != NULL) {	
-			
 			//파일 열기
 			//a : (쓰기 전용) 파일이 없으면 생성하고, 있으면 파일 포인터가 파일 끝에 위치함
 			FILE* fp = NULL;
@@ -339,9 +312,6 @@ void *fWrite(void *data)
 			free(ptrInfo);
 		}
 	}
-
-	//cleanup handler 해지
-	pthread_cleanup_pop(0);
 	
 	return NULL;
 }
