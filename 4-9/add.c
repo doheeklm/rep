@@ -69,6 +69,7 @@ int main()
 	}
 
 	while (1) {	
+		//Info *pInfo 동적할당
 		pInfo = (Info *)malloc(sizeof(Info));
 		if (pInfo == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
@@ -76,6 +77,7 @@ int main()
 		}
 		
 		do {
+			//pInfo 초기화
 			memset(pInfo, 0, sizeof(Info));
 
 			//이름 입력받기
@@ -87,8 +89,10 @@ int main()
 			}
 			ClearStdin(pInfo->name);
 
+			//exit 입력받으면 프로그램 종료
 			if (strcmp(str_exit, pInfo->name) == 0) {
 				printf("입력을 종료합니다.\n");
+				free(pInfo);
 				goto EXIT;
 			}
 
@@ -177,14 +181,19 @@ void ClearStdin(char* c)
 	if (c == NULL) {
 		return;
 	}
+
+	//개행문자 널문자로 변환
 	if (c[strlen(c) - 1] == '\n') {
 		c[strlen(c) - 1] = '\0';
 	}
+
+	//버퍼 비우기
 	__fpurge(stdin);
 }
 
 void Init(Queue *q)
 {
+	//큐 초기화
 	q->front = NULL;
 	q->rear = NULL;
 	q->count = 0;
@@ -229,10 +238,17 @@ int Dequeue(Queue *q, Info **ppInfo)
 		return DEQ_FAIL;
 	}
 
+	//pInfo의 주소를 넘겨받음
 	Info **pptemp = ppInfo;
+	
 	if (pptemp != NULL) {
+		//NULL이 아니면 pptemp에 큐의 맨앞원소를 넣어줌
 		*pptemp = q->front;
+	
+		//큐의 맨앞은 큐의 맨앞다음으로 변환
 		q->front = q->front->next;
+		
+		//큐 갯수 1감소
 		(q->count)--;
 	}
 
