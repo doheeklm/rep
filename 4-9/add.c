@@ -35,13 +35,14 @@ typedef struct _QUEUE {
 Queue q;
 Info *pInfo = NULL;
 
-const char* EXIT = "exit\n";			//Name에 exit을 입력받으면 프로그램 종료
+const char* str_exit = "exit";			//Name에 exit을 입력받으면 프로그램 종료
 
 void ClearStdin(char* c);				//버퍼 삭제
 void Init(Queue *q);					//큐 초기화
 int Enqueue(Queue *q, Info *pInfo);		//스레드1 내부에서 호출 (메인)
 int Dequeue(Queue *q, Info **ppInfo);	//스레드2 내부에서 호출
 int isEmpty(Queue *q);					//비어있는 큐 확인
+void cleanup_handler(void *arg);
 void *fWrite(void *data);				//스레드2에서 호출하는 함수
 
 int main()
@@ -84,42 +85,39 @@ int main()
 			fprintf(stderr, "errno[%d]", errno);
 			exit(EXIT_FAILURE);
 		}
-		memset(pInfo, 0, sizeof(Info));
+		
+		do {
+			memset(pInfo, 0, sizeof(Info));
 
-		//이름 입력받기
-		printf("Name: ");
-		if (fgets(pInfo->name, sizeof(pInfo->name), stdin) == NULL) {
-			free(pInfo);
-			fprintf(stderr, "errno[%d]", errno);
-			break;
-		}
-	
-		if (strcmp(EXIT, pInfo->name) == 0) {
-			printf("입력을 종료합니다.\n");
-			break;
-		}
-		ClearStdin(pInfo->name);
-
-		//전화번호 입력받기
-		printf("Phone Num: ");
-		if (fgets(pInfo->phone, sizeof(pInfo->phone), stdin) == NULL) {
-			free(pInfo);
-			fprintf(stderr, "errno[%d]", errno);
-			break;
-		}
-		if ((pInfo->phone[3] != '-') || (pInfo->phone[8] != '-')) {
-			printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
-			printf("처음으로 돌아갑니다.\n");
-			//sem_one +1
-			if (sem_post(&sem_one) != 0) {
+			//이름 입력받기
+			printf("Name: ");
+			if (fgets(pInfo->name, sizeof(pInfo->name), stdin) == NULL) {
 				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
 				break;
 			}
-			free(pInfo);
-			continue;
-		}
-		ClearStdin(pInfo->phone);
+			ClearStdin(pInfo->name);
+
+			if (strcmp(str_exit, pInfo->name) == 0) {
+				printf("입력을 종료합니다.\n");
+				goto EXIT;
+			}
+
+			//전화번호 입력받기
+			printf("Phone Num: ");
+			if (fgets(pInfo->phone, sizeof(pInfo->phone), stdin) == NULL) {
+				free(pInfo);
+				fprintf(stderr, "errno[%d]", errno);
+				break;
+			}
+			ClearStdin(pInfo->phone);
+
+			//입력한 전화번호 형태가 잘못된 경우, 에러 문구를 출력하고 이름부터 다시 입력 받음
+			if ((pInfo->phone[3] != '-') || (pInfo->phone[8] != '-')) {
+				printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
+				printf("처음으로 돌아갑니다.\n");
+			}
+		} while ((pInfo->phone[3] != '-') || (pInfo->phone[8] != '-'));
 
 		//주소 입력받기
 		printf("Address: ");
@@ -145,8 +143,9 @@ int main()
 		}
 	}
 
-	//스레드2 종료 기다리는 중
-	if (pthread_join(tWrite, (void **)NULL) != 0) {
+EXIT:
+	//스레드 취소 요청
+	if (pthread_cancel(tWrite) != 0) {
 		if (pthread_mutex_destroy(&mutex) != 0) {
 			if (sem_destroy(&sem_one) != 0) {
 				if (sem_destroy(&sem_two) != 0) {
@@ -166,7 +165,7 @@ int main()
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
-
+	
 	//뮤텍스 소멸
 	if (pthread_mutex_destroy(&mutex) != 0) {
 		if (sem_destroy(&sem_one) != 0) {
@@ -282,14 +281,28 @@ int isEmpty(Queue *q)
 	}
 }
 
+void cleanup_handler(void *arg)
+{
+	printf("clean up!\n");
+
+	free((Info *)arg);
+
+}
+
 void *fWrite(void *data)
 {
+	//취소 상태 활성화
+//	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	//스레드 종료 시 호출될 함수
+	pthread_cleanup_push(cleanup_handler, (void *)NULL);
+	//바로 종료
+//	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
 	while (1) {
 		//sem_one -1
-		//스레드 대기상태 진입
 		if (sem_wait(&sem_one) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
-			return NULL;
+			break;
 		}
 
 		//스레드 함수 fWrite에 받은 인자 data는 전역변수 Info *pInfo와 동일함
@@ -298,10 +311,11 @@ void *fWrite(void *data)
 		//Dequeue 함수의 인자로 ptrInfo의 주소를 넘겨줌
 		if (Dequeue(&q, &ptrInfo) == DEQ_FAIL) {
 			printf("Dequeue Fail\n");
-			return NULL;
+			break;
 		}
 
 		if (ptrInfo != NULL) {	
+			
 			//파일 열기
 			//a : (쓰기 전용) 파일이 없으면 생성하고, 있으면 파일 포인터가 파일 끝에 위치함
 			FILE* fp = NULL;
@@ -319,7 +333,7 @@ void *fWrite(void *data)
 					fprintf(stderr, "errno[%d]", errno);
 					break;		
 				}
-					free(ptrInfo);
+				free(ptrInfo);
 				fprintf(stderr, "errno[%d]", errno);
 				break;
 			}
@@ -336,13 +350,15 @@ void *fWrite(void *data)
 	
 			//sem_two +1
 			if (sem_post(&sem_two) != 0) {
-				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
 				break;
-			}		
+			}
 		}
+	
+	}
 
-	} //while
-
+	//cleanup handler 해지
+	pthread_cleanup_pop(0);
+	
 	return NULL;
 }
