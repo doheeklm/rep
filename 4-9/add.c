@@ -10,8 +10,7 @@
 
 pthread_mutex_t mutex;
 
-static sem_t sem_one;
-static sem_t sem_two;
+static sem_t sem;
 
 enum { EMPTY = 0, NOT_EMPTY = -1,
 		ENQ = 0, ENQ_FAIL = -1,
@@ -52,11 +51,7 @@ int main()
 	Init(&q);
 
 	//세마포어 초기화
-	if (sem_init(&sem_one, 0, 0) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
-	}
-	if (sem_init(&sem_two, 0, 1) != 0) {
+	if (sem_init(&sem, 0, 0) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
 	}
@@ -74,12 +69,6 @@ int main()
 	}
 
 	while (1) {	
-		//sem_two -1
-		if (sem_wait(&sem_two) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			break;
-		}
-		
 		pInfo = (Info *)malloc(sizeof(Info));
 		if (pInfo == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
@@ -134,9 +123,9 @@ int main()
 			break;
 		}
 		printf("<T1> [%s][%s][%s]\n", pInfo->name, pInfo->phone, pInfo->address);
-	
-		//sem_one +1
-		if (sem_post(&sem_one) != 0) {
+
+		//세마포어 값 1 증가
+		if (sem_post(&sem) != 0) {
 			free(pInfo);
 			fprintf(stderr, "errno[%d]", errno);
 			break;
@@ -147,12 +136,7 @@ EXIT:
 	//스레드 취소 요청
 	if (pthread_cancel(tWrite) != 0) {
 		if (pthread_mutex_destroy(&mutex) != 0) {
-			if (sem_destroy(&sem_one) != 0) {
-				if (sem_destroy(&sem_two) != 0) {
-					free(pInfo);
-					fprintf(stderr, "errno[%d]", errno);
-					exit(EXIT_FAILURE);
-				}
+			if (sem_destroy(&sem) != 0) {
 				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
 				exit(EXIT_FAILURE);
@@ -168,12 +152,7 @@ EXIT:
 	
 	//뮤텍스 소멸
 	if (pthread_mutex_destroy(&mutex) != 0) {
-		if (sem_destroy(&sem_one) != 0) {
-			if (sem_destroy(&sem_two) != 0) {
-				free(pInfo);
-				fprintf(stderr, "errno[%d]", errno);
-				exit(EXIT_FAILURE);
-			}
+		if (sem_destroy(&sem) != 0) {
 			free(pInfo);
 			fprintf(stderr, "errno[%d]", errno);
 			exit(EXIT_FAILURE);
@@ -184,12 +163,7 @@ EXIT:
 	}
 
 	//세마포어 제거
-	if (sem_destroy(&sem_one) != 0) {
-		if (sem_destroy(&sem_two) != 0) {
-			free(pInfo);
-			fprintf(stderr, "errno[%d]", errno);
-			exit(EXIT_FAILURE);
-		}	
+	if (sem_destroy(&sem) != 0) {
 		free(pInfo);
 		fprintf(stderr, "errno[%d]", errno);
 		exit(EXIT_FAILURE);
@@ -299,8 +273,8 @@ void *fWrite(void *data)
 //	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
 	while (1) {
-		//sem_one -1
-		if (sem_wait(&sem_one) != 0) {
+		//세마포어 값 1 감소
+		if (sem_wait(&sem) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
 			break;
 		}
@@ -347,14 +321,7 @@ void *fWrite(void *data)
 
 			printf("<T2> [%s][%s][%s]\n", ptrInfo->name, ptrInfo->phone, ptrInfo->address);
 			free(ptrInfo);
-	
-			//sem_two +1
-			if (sem_post(&sem_two) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-				break;
-			}
 		}
-	
 	}
 
 	//cleanup handler 해지
