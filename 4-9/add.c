@@ -67,10 +67,10 @@ int main()
 	
 	//스레드2 생성 (인자로 포인터 변수 pInfo를 넘겨줌)
 	if (pthread_create(&tWrite, NULL, fWrite, (void *)pInfo) != 0) {
+		if (sem_destroy(&sem) != 0) {
+			fprintf(stderr, "errno[%d]", errno);
+		}
 		if (pthread_mutex_destroy(&mutex) != 0) {
-			if (sem_destroy(&sem) != 0) {
-				fprintf(stderr, "errno[%d]", errno);
-			}
 			fprintf(stderr, "errno[%d]", errno);
 		}
 		fprintf(stderr, "errno[%d]", errno);
@@ -106,7 +106,6 @@ int main()
 			//전화번호 입력받기
 			printf("Phone Num: ");
 			if (fgets(pInfo->phone, sizeof(pInfo->phone), stdin) == NULL) {
-				free(pInfo);
 				fprintf(stderr, "errno[%d]", errno);
 				goto EXIT;
 			}
@@ -122,7 +121,6 @@ int main()
 		//주소 입력받기
 		printf("Address: ");
 		if (fgets(pInfo->address, sizeof(pInfo->address), stdin) == NULL) {
-			free(pInfo);
 			fprintf(stderr, "errno[%d]", errno);
 			goto EXIT;
 		}
@@ -291,24 +289,14 @@ void *fWrite(void *data)
 
 			//파일에 구조체 통으로 입력하기
 			if (fwrite(ptrInfo, sizeof(Info), 1, fp) != 1) {
-				if (fclose(fp) != 0) {
-					free(ptrInfo);
-					fprintf(stderr, "errno[%d]", errno);
-					break;		
-				}
-				free(ptrInfo);
 				fprintf(stderr, "errno[%d]", errno);
-				break;
 			}
 
 			//파일 닫기
 			if (fclose(fp) != 0) {
-				free(ptrInfo);
 				fprintf(stderr, "errno[%d]", errno);
-				break;
 			}
 
-			printf("<T2> [%s][%s][%s]\n", ptrInfo->name, ptrInfo->phone, ptrInfo->address);
 			free(ptrInfo);
 		}
 	}
