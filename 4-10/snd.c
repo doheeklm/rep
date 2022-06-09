@@ -12,9 +12,6 @@
 #include <stdio_ext.h> //__fpurge()
 #include <unistd.h> //getpid()
 
-pthread_mutex_t mutex; //뮤텍스 객체
-static sem_t sem; //세마포어 정수 변수
-
 typedef struct _MSG {
 	/* 메시지 타입 */
 	long mtype;
@@ -30,35 +27,14 @@ void ClearStdin(char* c); //버퍼 삭제
 int main()
 {
 	Msg msg;
-//	msg.mtype = getpid();
+	memset(&msg, 0, sizeof(msg));
+
+	msg.mtype = getpid();
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);
 
-	//세마포어 초기화
-	if (sem_init(&sem, 0, 0) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
-	}
-
-	//뮤텍스 초기화
-	if (pthread_mutex_init(&mutex, NULL) != 0) {
-		if (sem_destroy(&sem) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-		}
-		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
-	}
-
 	do {
-		//뮤텍스 락
-		if (pthread_mutex_lock(&mutex) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-			goto EXIT;
-		}
-	
-		memset(&msg, 0, sizeof(msg));
-
 		//이름 입력받기
 		printf("Name: ");
 		if(fgets(msg.name, sizeof(msg.name), stdin) == NULL) {
@@ -67,19 +43,13 @@ int main()
 		}
 		ClearStdin(msg.name);
 
-		//exit 입력받으면 프로그램 종료
-		if (strcmp(str_exit, msg.name) == 0) {
-			printf("입력을 종료합니다.\n");
-			goto EXIT;
-		}
-
 		//전화번호 입력받기
 		printf("Phone Num: ");
 		if (fgets(msg.phone, sizeof(msg.phone), stdin) == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
 			goto EXIT;
-		}
-		ClearStdin(msg.phone);
+	 	}
+ 		ClearStdin(msg.phone);
 
 		//입력한 전화번호 형태가 잘못된 경우, 에러 문구를 출력하고 이름부터 다시 입력 받음
 		if ((msg.phone[3] != '-') || (msg.phone[8] != '-')) {
@@ -95,44 +65,23 @@ int main()
 		goto EXIT;
 	}
 	ClearStdin(msg.address);
-	
-	//뮤텍스 언락
-	if (pthread_mutex_unlock(&mutex) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		goto EXIT;
-	}
 
 	//키 생성
 	key_t key = 0;
 	if ((key = ftok(".", 'A')) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		goto EXIT;
 	}
 
-	int qid = 0; //메세지 큐 식별자
+	int qid = 0;
 	qid = msgget(key, IPC_CREAT | 0666);
 
 	if (msgsnd(qid, (void *)&msg, msg_size, IPC_NOWAIT) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
-	}
-
-	//세마포어 값 1 증가
-	if (sem_post(&sem) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		goto EXIT;
 	}
 
 EXIT:
-	//뮤텍스 소멸
-	if (pthread_mutex_destroy(&mutex) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-	}
-
-	//세마포어 제거
-	if (sem_destroy(&sem) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-	}
-
 	return 0;
 }
 
