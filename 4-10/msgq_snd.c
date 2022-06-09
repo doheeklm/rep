@@ -11,6 +11,9 @@
 #include <stdlib.h> //malloc() free()
 #include <stdio_ext.h> //__fpurge()
 #include <unistd.h> //getpid()
+#include <sys/stat.h> //sem_open() S_IRWXR
+
+pthread_mutex_t mutex;
 
 typedef struct _MSG {
 	/* 메시지 타입 */
@@ -26,6 +29,18 @@ void ClearStdin(char* c); //버퍼 삭제
 
 int main()
 {
+	printf("[snd process]\n");
+
+	if (pthread_mutex_init(&mutex, NULL) == -1) {
+		fprintf(stderr, "mutuex_init/errno[%d]", errno);
+		return 0;
+	}
+
+	if (pthread_mutex_lock(&mutex) == -1) {
+		fprintf(stderr, "mutex_lock/errno[%d]", errno);
+		goto EXIT;
+	}
+
 	Msg msg;
 	memset(&msg, 0, sizeof(msg));
 	msg.mtype = getpid();
@@ -81,10 +96,17 @@ int main()
 
 	if (msgsnd(qid, (void *)&msg, msg_size, IPC_NOWAIT) == -1) {
 		fprintf(stderr, "msgsnd/errno[%d]", errno);
-		goto EXIT;
 	}
 
 EXIT:
+	if (pthread_mutex_unlock(&mutex) == -1) {
+		fprintf(stderr, "mutex_unlock/errno[%d]", errno);
+	}
+
+	if (pthread_mutex_destroy(&mutex) == -1) {
+		fprintf(stderr, "mutex_destroy/errno[%d]", errno);
+	}
+
 	return 0;
 }
 

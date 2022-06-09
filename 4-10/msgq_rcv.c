@@ -25,6 +25,8 @@ typedef struct _MSG {
 
 int main()
 {
+	printf("\n[rcv process]\n");
+	
 	Msg msg;
 	memset(&msg, 0, sizeof(msg));
 
@@ -35,7 +37,7 @@ int main()
 	//키 생성
 	key_t key = 0;
 	if ((key = ftok(".", 'A')) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "ftok/errno[%d]", errno);
 		goto EXIT;
 	}
 	else {
@@ -46,40 +48,47 @@ int main()
 	int qid = 0;
 	qid = msgget(key, IPC_CREAT | 0666);
 	if (qid == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "msgget/errno[%d]", errno);
 		goto EXIT;
 	}
 
-	ssize_t nbytes = 0;
-	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT);
-	//0 => msgtype 메시지 큐에서 첫번째 메세지를 수신
-
-	if (nbytes > 0) {
-		printf("SUCCESS: message bytes[%ld]\n", nbytes);
-	}
-	else {
-		printf("FAIL: message bytes[%ld]\n", nbytes);
+	struct msqid_ds buf;
+	if (msgctl(qid, IPC_STAT, &buf) == -1) {
+		fprintf(stderr, "msgctl/errno[%d]", errno);
 		goto EXIT;
+	}
+
+	int nMsg = 0;
+	nMsg = buf.msg_qnum;
+
+	if (nMsg != 0) { //메세지 큐 안에 메시지 갯수가 0이 아닐 때
+		ssize_t nbytes = 0;
+		nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT);
+		//4번째 인자 0 : msgtype 메시지 큐에서 첫번째 메세지를 수신
+		if (nbytes == -1) {
+			fprintf(stderr, "msgrcv/errno[%d]", errno);
+			goto EXIT;
+		}
+		
+		msg.mtype = 0; //0으로 설정해야 파일 write할때 NULL이 들어감
+
+		FILE* fp = NULL;
+		fp = fopen("./address_msgq.txt", "a");
+		if (fp == NULL) {
+			fprintf(stderr, "fopen/errno[%d]", errno);
+			goto EXIT;
+		}
+	
+		if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
+			fprintf(stderr, "fwrite/errno[%d]", errno);
+		}
+
+		if (fclose(fp) != 0) {
+			fprintf(stderr, "fclose/errno[%d]", errno);
+			goto EXIT;
+		}
 	}
 	
-	msg.mtype = 0;
-
-	FILE* fp = NULL;
-	fp = fopen("./address_msgq.txt", "a");
-	if (fp == NULL) {
-		fprintf(stderr, "fopen/errno[%d]", errno);
-		goto EXIT;
-	}
-
-	if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
-		fprintf(stderr, "fwrite/errno[%d]", errno);
-	}
-
-	if (fclose(fp) != 0) {
-		fprintf(stderr, "fclose/errno[%d]", errno);
-		goto EXIT;
-	}
-
 	//메시지 큐를 제거하고 관련 데이터 구조체를 제거한다
 	if (msgctl(qid, IPC_RMID, 0) == -1) {
 		fprintf(stderr, "msgctl/errno[%d]", errno);
@@ -87,5 +96,6 @@ int main()
 	}
 
 EXIT:
+	
 	return 0;
 }
