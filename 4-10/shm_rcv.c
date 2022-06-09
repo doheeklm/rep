@@ -25,6 +25,8 @@ int main()
 	Shm shm;
 	memset(&shm, 0, sizeof(shm));
 
+	void* shmaddr;
+
 	//키 생성
 //	key_t key = 0;
 //	if ((key = ftok(".", 'B')) == -1) {

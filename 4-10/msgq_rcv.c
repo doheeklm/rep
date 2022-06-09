@@ -60,7 +60,7 @@ int main()
 
 	int nMsg = 0;
 	nMsg = buf.msg_qnum;
-
+while (1) {
 	if (nMsg != 0) { //메세지 큐 안에 메시지 갯수가 0이 아닐 때
 		ssize_t nbytes = 0;
 		nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT);
@@ -87,7 +87,10 @@ int main()
 			fprintf(stderr, "fclose/errno[%d]", errno);
 			goto EXIT;
 		}
+
+		break;
 	}
+}
 	
 	//메시지 큐를 제거하고 관련 데이터 구조체를 제거한다
 	if (msgctl(qid, IPC_RMID, 0) == -1) {

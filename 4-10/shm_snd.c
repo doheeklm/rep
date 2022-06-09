@@ -75,8 +75,19 @@ int main()
 	}
 	ClearStdin(shm.address);
 
-	if (shmat(shmid, &shm, SHM_RDONLY) == NULL) {
+	/* shmid 공유 메모리를 호출 프로세스 메모리 영역으로 첨부 */
+	void* shmaddr;
+	if ((shmaddr = shmat(shmid, &shm, SHM_RDONLY)) == NULL) {
 		fprintf(stderr, "shmat/errno[%d]", errno);
+		goto EXIT;
+	}
+
+	/* 공유 메모리에 데이터 쓰기 */
+	strcpy((char *)shmaddr, "TEST");
+
+	/* 공유 메모리를 호출 프로세스의 메모리 영역에서 분리 */
+	if (shmdt(shmaddr) == -1) {
+		fprintf(stderr, "shmdt/errno[%d]", errno);
 		goto EXIT;
 	}
 
