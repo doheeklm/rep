@@ -1,4 +1,4 @@
-/* snd.c */
+/* msgq_snd.c */
 #include <stdio.h>
 #include <string.h> //strcmp()
 #include <errno.h> //errno
@@ -28,8 +28,6 @@ int main()
 {
 	Msg msg;
 	memset(&msg, 0, sizeof(msg));
-
-	msg.mtype = getpid();
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);

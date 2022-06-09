@@ -1,4 +1,4 @@
-/* rcv.c */
+/* msgq_rcv.c */
 #include <stdio.h>
 #include <string.h> //strcmp()
 #include <errno.h> //errno
@@ -47,7 +47,7 @@ int main()
 	qid = msgget(key, IPC_CREAT | 0666);
 
 	ssize_t nbytes = 0;
-	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT); //0 => msgtype? PID?
+	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT); //0 => msgtype 메시지 큐에서 첫번째 메세지를 수신
 
 	if (nbytes > 0) {
 		printf("SUCCESS: message bytes[%ld]\n", nbytes);
@@ -57,8 +57,8 @@ int main()
 		goto EXIT;
 	}
 
+	//제어 기능에 사용되는 메시지 큐 구조체의 주소
 	struct msqid_ds buf;
-	
 	//현재 메시지 큐의 정보를 buf로 지정한 메모리에 저장함
 	if (msgctl(qid, IPC_STAT, &buf) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
@@ -85,10 +85,10 @@ int main()
 	}
 
 	//메시지 큐를 제거하고 관련 데이터 구조체를 제거한다
-	if (msgctl(qid, IPC_RMID, 0) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
-		goto EXIT;
-	}
+	//if (msgctl(qid, IPC_RMID, 0) == -1) {
+	//	fprintf(stderr, "errno[%d]", errno);
+	//	goto EXIT;
+	//}
 
 EXIT:
 	return 0;
