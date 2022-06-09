@@ -28,6 +28,7 @@ int main()
 {
 	Msg msg;
 	memset(&msg, 0, sizeof(msg));
+	msg.mtype = getpid();
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);
@@ -36,7 +37,7 @@ int main()
 		//이름 입력받기
 		printf("Name: ");
 		if(fgets(msg.name, sizeof(msg.name), stdin) == NULL) {
-			fprintf(stderr, "errno[%d]", errno);
+			fprintf(stderr, "msg.name/errno[%d]", errno);
 			goto EXIT;
 		}
 		ClearStdin(msg.name);
@@ -44,7 +45,7 @@ int main()
 		//전화번호 입력받기
 		printf("Phone Num: ");
 		if (fgets(msg.phone, sizeof(msg.phone), stdin) == NULL) {
-			fprintf(stderr, "errno[%d]", errno);
+			fprintf(stderr, "msg.phone/errno[%d]", errno);
 			goto EXIT;
 	 	}
  		ClearStdin(msg.phone);
@@ -59,7 +60,7 @@ int main()
 	//주소 입력받기
 	printf("Address: ");
 	if (fgets(msg.address, sizeof(msg.address), stdin) == NULL) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "msg.address/errno[%d]", errno);
 		goto EXIT;
 	}
 	ClearStdin(msg.address);
@@ -67,19 +68,19 @@ int main()
 	//키 생성
 	key_t key = 0;
 	if ((key = ftok(".", 'A')) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "ftok/errno[%d]", errno);
 		goto EXIT;
 	}
 
 	int qid = 0;
-	qid = msgget(key, IPC_CREAT | IPC_EXCL | 0666);
+	qid = msgget(key, IPC_CREAT | 0666);
 	if (qid == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "msgget/errno[%d]", errno);
 		goto EXIT;
 	}
 
 	if (msgsnd(qid, (void *)&msg, msg_size, IPC_NOWAIT) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "msgsnd/errno[%d]", errno);
 		goto EXIT;
 	}
 

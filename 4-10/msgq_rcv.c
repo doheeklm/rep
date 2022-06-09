@@ -44,14 +44,15 @@ int main()
 
 	//메시지 큐 식별자
 	int qid = 0;
-	qid = msgget(key, IPC_CREAT | IPC_EXCL | 0666);
+	qid = msgget(key, IPC_CREAT | 0666);
 	if (qid == -1) {
 		fprintf(stderr, "errno[%d]", errno);
 		goto EXIT;
 	}
 
 	ssize_t nbytes = 0;
-	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT); //0 => msgtype 메시지 큐에서 첫번째 메세지를 수신
+	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT);
+	//0 => msgtype 메시지 큐에서 첫번째 메세지를 수신
 
 	if (nbytes > 0) {
 		printf("SUCCESS: message bytes[%ld]\n", nbytes);
@@ -60,39 +61,30 @@ int main()
 		printf("FAIL: message bytes[%ld]\n", nbytes);
 		goto EXIT;
 	}
-
-	//제어 기능에 사용되는 메시지 큐 구조체의 주소
-	struct msqid_ds buf;
-	//현재 메시지 큐의 정보를 buf로 지정한 메모리에 저장함
-	if (msgctl(qid, IPC_STAT, &buf) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
-		goto EXIT;	
-	}
-
-	printf("msgrcv 성공 시 메시지 갯수 1 감소 [msg_qnum = %ld]\n", buf.msg_qnum);
+	
 	msg.mtype = 0;
 
 	FILE* fp = NULL;
-	fp = fopen("./add.txt", "a");
+	fp = fopen("./address_msgq.txt", "a");
 	if (fp == NULL) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "fopen/errno[%d]", errno);
 		goto EXIT;
 	}
 
 	if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "fwrite/errno[%d]", errno);
 	}
 
 	if (fclose(fp) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "fclose/errno[%d]", errno);
 		goto EXIT;
 	}
 
 	//메시지 큐를 제거하고 관련 데이터 구조체를 제거한다
-	//if (msgctl(qid, IPC_RMID, 0) == -1) {
-	//	fprintf(stderr, "errno[%d]", errno);
-	//	goto EXIT;
-	//}
+	if (msgctl(qid, IPC_RMID, 0) == -1) {
+		fprintf(stderr, "msgctl/errno[%d]", errno);
+		goto EXIT;
+	}
 
 EXIT:
 	return 0;

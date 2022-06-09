@@ -12,6 +12,8 @@
 #include <stdio_ext.h> //__fpurge()
 #include <unistd.h> //getpid()
 
+#define KEY_NUM 777
+
 typedef struct _SHM {
 	char name[13]; //이름 한글 최대 4자
 	char phone[14]; //전화번호 xxx-xxxx-xxxx
@@ -27,17 +29,17 @@ int main()
 	memset(&shm, 0, sizeof(shm));
 
 	//키 생성
-	key_t key = 0;
-	if ((key = ftok(".", 'B')) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
-		//return
-	}
+//	key_t key = 0;
+//	if ((key = ftok(".", 'B')) == -1) {
+//		fprintf(stderr, "ftok/errno[%d]", errno);
+//		goto EXIT;
+//	}
 
 	//공유 메모리 생성
 	int shmid = 0;
-	shmid = shmget(key, sizeof(shm), IPC_CREATE | IPC_EXCL | 0666);
+	shmid = shmget((key_t)KEY_NUM, sizeof(shm), IPC_CREAT | 0666);
 	if (shmid == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "shmget/errno[%d]", errno);
 		goto EXIT;
 	}
 
@@ -45,7 +47,7 @@ int main()
 		//이름 입력받기
 		printf("Name: ");
 		if(fgets(shm.name, sizeof(shm.name), stdin) == NULL) {
-			fprintf(stderr, "errno[%d]", errno);
+			fprintf(stderr, "shm.name/errno[%d]", errno);
 			goto EXIT;
 		}
 		ClearStdin(shm.name);
@@ -53,7 +55,7 @@ int main()
 		//전화번호 입력받기
 		printf("Phone Num: ");
 		if (fgets(shm.phone, sizeof(shm.phone), stdin) == NULL) {
-			fprintf(stderr, "errno[%d]", errno);
+			fprintf(stderr, "shm.phone/errno[%d]", errno);
 			goto EXIT;
 	 	}
  		ClearStdin(shm.phone);
@@ -68,13 +70,13 @@ int main()
 	//주소 입력받기
 	printf("Address: ");
 	if (fgets(shm.address, sizeof(shm.address), stdin) == NULL) {
-		fprintf(stderr, "errno[%d]", errno);
+		fprintf(stderr, "shm.address/errno[%d]", errno);
 		goto EXIT;
 	}
 	ClearStdin(shm.address);
 
-	if (shmat(shmid, &shm, SHM_RDONLY) == -1) {
-		fprintf(stderr, "errno[%d]", errno);
+	if (shmat(shmid, &shm, SHM_RDONLY) == NULL) {
+		fprintf(stderr, "shmat/errno[%d]", errno);
 		goto EXIT;
 	}
 
