@@ -12,9 +12,6 @@
 #include <unistd.h> //getpid()
 #include <string.h> //memset()
 
-pthread_mutex_t mutex; //뮤텍스 객체 변수
-static sem_t sem; //세마포어 객체 변수
-
 typedef struct {
 	/* 메시지 타입 */
 	long mtype;
@@ -26,12 +23,6 @@ typedef struct {
 
 int main()
 {
-	//세마포어 값 1 감소 (스레드2 대기상태)
-	if (sem_wait(&sem) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		return 0;
-	}	
-
 	Msg msg;
 	memset(&msg, 0, sizeof(msg));
 
@@ -43,7 +34,7 @@ int main()
 	key_t key = 0;
 	if ((key = ftok(".", 'A')) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
-		//return
+		goto EXIT;
 	}
 	else {
 		printf("key[%d]\n", key);
@@ -52,21 +43,15 @@ int main()
 	int qid = 0; //메시지 큐 식별자
 	qid = msgget(key, IPC_CREAT | 0666);
 
-	//세마포어 값 1 감소 (프로세스2 대기)
-	if (sem_wait(&sem) != 0) {
-		fprintf(stderr, "errno[%d]", errno);
-		return 0;
-	}
-
 	ssize_t nbytes = 0;
-	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT);
-	//nbytes = msgrcv(qid, (void *)&msg, msg_size, msg.mtype, IPC_NOWAIT);
+	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT); //0 => msgtype? PID?
 
 	if (nbytes > 0) {
 		printf("SUCCESS: message bytes[%ld]\n", nbytes);
 	}
 	else {
 		printf("FAIL: message bytes[%ld]\n", nbytes);
+		goto EXIT;
 	}
 
 	struct msqid_ds buf;
@@ -74,7 +59,7 @@ int main()
 	//현재 메시지 큐의 정보를 buf로 지정한 메모리에 저장함
 	if (msgctl(qid, IPC_STAT, &buf) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
-		return 0;	
+		goto EXIT;	
 	}
 
 	printf("msgrcv가 성공하면 메시지 갯수는 1 감소함:msg_qnum값[%ld]\n", buf.msg_qnum);
@@ -84,7 +69,7 @@ int main()
 	fp = fopen("./add.txt", "a");
 	if (fp == NULL) {
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		goto EXIT;
 	}
 
 	if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
@@ -93,14 +78,15 @@ int main()
 
 	if (fclose(fp) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		goto EXIT;
 	}
 
 	//메시지 큐를 제거하고 관련 데이터 구조체를 제거한다
 	if (msgctl(qid, IPC_RMID, 0) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
-		return 0;
+		goto EXit;
 	}
-	
+
+EXIT:
 	return 0;
 }
