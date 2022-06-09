@@ -44,7 +44,11 @@ int main()
 
 	//메시지 큐 식별자
 	int qid = 0;
-	qid = msgget(key, IPC_CREAT | 0666);
+	qid = msgget(key, IPC_CREAT | IPC_EXCL | 0666);
+	if (qid == -1) {
+		fprintf(stderr, "errno[%d]", errno);
+		goto EXIT;
+	}
 
 	ssize_t nbytes = 0;
 	nbytes = msgrcv(qid, (void *)&msg, msg_size, 0, IPC_NOWAIT); //0 => msgtype 메시지 큐에서 첫번째 메세지를 수신

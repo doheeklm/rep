@@ -72,7 +72,11 @@ int main()
 	}
 
 	int qid = 0;
-	qid = msgget(key, IPC_CREAT | 0666);
+	qid = msgget(key, IPC_CREAT | IPC_EXCL | 0666);
+	if (qid == -1) {
+		fprintf(stderr, "errno[%d]", errno);
+		goto EXIT;
+	}
 
 	if (msgsnd(qid, (void *)&msg, msg_size, IPC_NOWAIT) == -1) {
 		fprintf(stderr, "errno[%d]", errno);
