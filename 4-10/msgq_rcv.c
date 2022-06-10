@@ -21,6 +21,7 @@ typedef struct _MSG {
 int main()
 {
 	Msg msg;
+	memset(&msg, 0, sizeof(msg));
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);
@@ -38,8 +39,9 @@ int main()
 		return 0;
 	}
 
-	struct msqid_ds buf; //메시지 큐 정보
+	struct msqid_ds buf;
 	pid_t pidSnd = 0;
+
 	ssize_t nBytes = 0;
 	int nMsg = 0;
 
@@ -47,44 +49,51 @@ int main()
 	char* str;
 
 	while (1) {
-		memset(&msg, 0, sizeof(msg));
+		pidSnd = buf.msg_lspid; //최근 msgsnd한 pid
+		printf("pidSnd[%d]\n", pidSnd);
+
+		//0: 메세지가 올때까지 기다린다
+		nBytes = msgrcv(qid, (void *)&msg, msg_size, (long)pidSnd, 0);
+		if (nBytes == -1) {
+			fprintf(stderr, "msgrcv/errno[%d]", errno);
+			break;
+		}
+
+		//메시지 큐 정보를 buf에 저장
 		if (msgctl(qid, IPC_STAT, &buf) == -1) {
 			fprintf(stderr, "msgctl/errno[%d]", errno);
 			return 0;
 		}
-		nMsg = buf.msg_qnum;
 
-		nBytes = msgrcv(qid, (void *)&msg, msg_size, 0, 0);
-		if (nbytes == -1) {
-			fprintf(stderr, "msgrcv/errno[%d]", errno);
-			break;
-		}
-		msg.mtype = 0; //0으로 설정해야 파일 write할때 NULL이 들어감
+		nMsg = buf.msg_qnum; //메시지 갯수
+		if (nMsg == 0) { //메시지를 receive 했다면, 메시지 큐의 갯수는 0
+			FILE* fp = NULL;
+			fp = fopen("./address_msgq.txt", "a");
+			if (fp == NULL) {
+				fprintf(stderr, "fopen/errno[%d]", errno);
+				break;
+			}
 
-		FILE* fp = NULL;
-		fp = fopen("./address_msgq.txt", "a");
-		if (fp == NULL) {
-			fprintf(stderr, "fopen/errno[%d]", errno);
-			break;
-		}
-
-		if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
-			fprintf(stderr, "fwrite/errno[%d]", errno);
-		}
+			if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
+				fprintf(stderr, "fwrite/errno[%d]", errno);
+			}
 	
-		if (fclose(fp) != 0) {
-			fprintf(stderr, "fclose/errno[%d]", errno);
-			break;
+			if (fclose(fp) != 0) {
+				fprintf(stderr, "fclose/errno[%d]", errno);
+				break;
+			}
 		}
 
-		pidSnd = buf.msg_lspid;
-		sprintf(str, "/proc/%d", (int)pidSnd); 
-		if (stat(str, &st) == -1 && errno == ENOENT) {
-			printf("exit process\n");
-			break;
+		if ((int)pidSnd != 0) {
+			sprintf(str, "/proc/%d", (int)pidSnd); 
+			if (stat(str, &st) == -1 && errno == ENOENT) {
+				printf("exit process\n");
+				goto EXIT;
+			}
 		}
 	}
 
+EXIT:
 	if (msgctl(qid, IPC_RMID, 0) == -1) {
 		fprintf(stderr, "msgctl/errno[%d]", errno);
 	}

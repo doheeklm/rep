@@ -44,6 +44,9 @@ int main()
 	while (1) {
 		memset(&msg, 0, sizeof(msg));
 
+		msg.mtype = getpid();
+		printf("mtype[%ld]\n", msg.mtype);
+
 		do {
 			printf("Name: ");
 			if(fgets(msg.name, sizeof(msg.name), stdin) == NULL) {
@@ -53,9 +56,9 @@ int main()
 			ClearStdin(msg.name);
 
 			if (strcmp(str_exit,msg.name) == 0) {
-				goto EXIT;
+				return 0;
 			}
-
+			
 			printf("Phone Num: ");
 			if (fgets(msg.phone, sizeof(msg.phone), stdin) == NULL) {
 				fprintf(stderr, "msg.phone/errno[%d]", errno);
@@ -75,8 +78,7 @@ int main()
 			goto EXIT;
 		}
 		ClearStdin(msg.address);
-	
-//		msg.mtype = getpid();
+
 		if (msgsnd(qid, (void *)&msg, msg_size, 0) == -1) {
 			fprintf(stderr, "msgsnd/errno[%d]", errno);
 			goto EXIT;
@@ -96,12 +98,10 @@ void ClearStdin(char* c)
 	if (c == NULL) {
 		return;
 	}
-
-	//개행문자를 널문자로 변환
+	
 	if (c[strlen(c) - 1] == '\n') {
 		c[strlen(c) - 1] = '\0';
 	}
 
-	//버퍼 비우기
 	__fpurge(stdin);
 }
