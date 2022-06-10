@@ -1,97 +1,100 @@
 /* shm_snd.c */
 #include <stdio.h>
-#include <string.h> //strcmp()
-#include <errno.h> //errno
-#include <stdlib.h> //exit()
-#include <sys/ipc.h> //shmget() shmctl() ftok()
-#include <sys/types.h> //shmat() shmdt() ftok()
-#include <sys/shm.h> //shmget() shmat() shmdt() shmctl()
-#include <pthread.h> //pthread_mutex_init() pthread_mutex_lock() pthread_mutex_unlock() pthread_mutex_destroy()
-#include <semaphore.h> //sem_init() sem_getvalue() sem_wait() sem_post() sem_destroy()
-#include <stdlib.h> //malloc() free()
-#include <stdio_ext.h> //__fpurge()
-#include <unistd.h> //getpid()
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <stdlib.h>
+#include <stdio_ext.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #define KEY_NUM 777
 
 typedef struct _SHM {
-	char name[13]; //이름 한글 최대 4자
-	char phone[14]; //전화번호 xxx-xxxx-xxxx
-	char address[151]; //주소 한글 최대 50자
+	char name[13];
+	char phone[14];
+	char address[151];
 } Shm;
 
-const char* str_exit = "exit"; //Name에 exit을 입력 받으면 프로그램 종료
-void ClearStdin(char* c); //버퍼 삭제
+const char* str_exit = "exit";
+void ClearStdin(char* c);
 
 int main()
 {
 	Shm shm;
-	memset(&shm, 0, sizeof(shm));
 
-	//키 생성
-//	key_t key = 0;
-//	if ((key = ftok(".", 'B')) == -1) {
-//		fprintf(stderr, "ftok/errno[%d]", errno);
-//		goto EXIT;
-//	}
-
-	//공유 메모리 생성
 	int shmid = 0;
 	shmid = shmget((key_t)KEY_NUM, sizeof(shm), IPC_CREAT | 0666);
 	if (shmid == -1) {
 		fprintf(stderr, "shmget/errno[%d]", errno);
-		goto EXIT;
+		return 0;
 	}
 
-	do {
-		//이름 입력받기
-		printf("Name: ");
-		if(fgets(shm.name, sizeof(shm.name), stdin) == NULL) {
-			fprintf(stderr, "shm.name/errno[%d]", errno);
+	void* shared_memory = (void*)0;
+
+	memset(&shm, 0, sizeof(shm));
+	struct shmid_ds buf;
+	
+	while (1) {
+		if (shmctl(shmid, IPC_STAT, &buf) == -1) {
+			fprintf(stderr, "shmctl/errno[%d]", errno);
 			goto EXIT;
 		}
-		ClearStdin(shm.name);
+		
+		do {
+			printf("Name: ");
+			if(fgets(shm.name, sizeof(shm.name), stdin) == NULL) {
+				fprintf(stderr, "shm.name/errno[%d]", errno);
+				goto EXIT;
+			}
+			ClearStdin(shm.name);
 
-		//전화번호 입력받기
-		printf("Phone Num: ");
-		if (fgets(shm.phone, sizeof(shm.phone), stdin) == NULL) {
-			fprintf(stderr, "shm.phone/errno[%d]", errno);
+			if (strcmp(str_exit, shm.name) == 0) {
+				goto EXIT;
+			}
+
+			printf("Phone Num: ");
+			if (fgets(shm.phone, sizeof(shm.phone), stdin) == NULL) {
+				fprintf(stderr, "shm.phone/errno[%d]", errno);
+				goto EXIT;
+	 		}
+ 			ClearStdin(shm.phone);
+
+			if ((shm.phone[3] != '-') || (shm.phone[8] != '-')) {
+				printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
+				printf("처음으로 돌아갑니다.\n");
+			}
+		} while ((shm.phone[3] != '-') || (shm.phone[8] != '-'));
+
+		printf("Address: ");
+		if (fgets(shm.address, sizeof(shm.address), stdin) == NULL) {
+			fprintf(stderr, "shm.address/errno[%d]", errno);
 			goto EXIT;
-	 	}
- 		ClearStdin(shm.phone);
-
-		//입력한 전화번호 형태가 잘못된 경우, 에러 문구를 출력하고 이름부터 다시 입력 받음
-		if ((shm.phone[3] != '-') || (shm.phone[8] != '-')) {
-			printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
-			printf("처음으로 돌아갑니다.\n");
 		}
-	} while ((shm.phone[3] != '-') || (shm.phone[8] != '-'));
+		ClearStdin(shm.address);
 
-	//주소 입력받기
-	printf("Address: ");
-	if (fgets(shm.address, sizeof(shm.address), stdin) == NULL) {
-		fprintf(stderr, "shm.address/errno[%d]", errno);
-		goto EXIT;
-	}
-	ClearStdin(shm.address);
+		/* 생성한 공유 메모리를 shared_memory 변수에 붙인다. */
+		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
+			fprintf(stderr, "shmat/errno[%d]", errno);
+			goto EXIT;
+		}
 
-	/* shmid 공유 메모리를 호출 프로세스 메모리 영역으로 첨부 */
-	void* shmaddr;
-	if ((shmaddr = shmat(shmid, &shm, SHM_RDONLY)) == NULL) {
-		fprintf(stderr, "shmat/errno[%d]", errno);
-		goto EXIT;
-	}
+		emcpy(shared_memory, Shm, sizeof(shm));
+		if (shmdt(shared_memory) == -1) {
+			fprintf(stderr, "shmdt/errno[%d]", errno);
+			goto EXIT;
+		}
 
-	/* 공유 메모리에 데이터 쓰기 */
-	strcpy((char *)shmaddr, "TEST");
-
-	/* 공유 메모리를 호출 프로세스의 메모리 영역에서 분리 */
-	if (shmdt(shmaddr) == -1) {
-		fprintf(stderr, "shmdt/errno[%d]", errno);
-		goto EXIT;
 	}
 
 EXIT:
+	if (shmctl(shmid, IPC_RMID, 0) == -1) {
+		fprintf(stderr, "shmctl/errno[%d]", errno);	
+	}
+
 	return 0;
 }
 
@@ -101,11 +104,9 @@ void ClearStdin(char* c)
 		return;
 	}
 
-	//개행문자를 널문자로 변환
 	if (c[strlen(c) - 1] == '\n') {
 		c[strlen(c) - 1] = '\0';
 	}
 
-	//버퍼 비우기
 	__fpurge(stdin);
 }
