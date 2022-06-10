@@ -1,111 +1,92 @@
 /* msgq_snd.c */
 #include <stdio.h>
-#include <string.h> //strcmp()
-#include <errno.h> //errno
-#include <stdlib.h> //exit()
-#include <sys/types.h> //msgget() msgsnd() msgrcv() msgctl() ftok()
-#include <sys/ipc.h> //msgget() msgsnd() msgrcv() msgctl() ftok()
-#include <sys/msg.h> //msgget() msgsnd() msgrcv() msgctl()
-#include <pthread.h> //pthread_mutex_init() pthread_mutex_lock() pthread_mutex_unlock() pthread_mutex_destroy()
-#include <semaphore.h> //sem_init() sem_getvalue() sem_wait() sem_post() sem_destroy()
-#include <stdlib.h> //malloc() free()
-#include <stdio_ext.h> //__fpurge()
-#include <unistd.h> //getpid()
-#include <sys/stat.h> //sem_open() S_IRWXR
-
-pthread_mutex_t mutex;
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <stdlib.h>
+#include <stdio_ext.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 typedef struct _MSG {
-	/* 메시지 타입 */
 	long mtype;
-	/* 메시지 데이터 */
-	char name[13]; //이름 한글 최대 4자
-	char phone[14]; //전화번호 xxx-xxxx-xxxx
-	char address[151]; //주소 한글 최대 50자
+	char name[13];
+	char phone[14];
+	char address[151];
 } Msg;
 
-const char* str_exit = "exit"; //Name에 exit을 입력 받으면 프로그램 종료
-void ClearStdin(char* c); //버퍼 삭제
+const char* str_exit = "exit";
+void ClearStdin(char* c);
 
 int main()
 {
-	printf("[snd process]\n");
-
-	if (pthread_mutex_init(&mutex, NULL) == -1) {
-		fprintf(stderr, "mutuex_init/errno[%d]", errno);
-		return 0;
-	}
-
-	if (pthread_mutex_lock(&mutex) == -1) {
-		fprintf(stderr, "mutex_lock/errno[%d]", errno);
-		goto EXIT;
-	}
-
 	Msg msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.mtype = getpid();
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);
 
-	do {
-		//이름 입력받기
-		printf("Name: ");
-		if(fgets(msg.name, sizeof(msg.name), stdin) == NULL) {
-			fprintf(stderr, "msg.name/errno[%d]", errno);
-			goto EXIT;
-		}
-		ClearStdin(msg.name);
-
-		//전화번호 입력받기
-		printf("Phone Num: ");
-		if (fgets(msg.phone, sizeof(msg.phone), stdin) == NULL) {
-			fprintf(stderr, "msg.phone/errno[%d]", errno);
-			goto EXIT;
-	 	}
- 		ClearStdin(msg.phone);
-
-		//입력한 전화번호 형태가 잘못된 경우, 에러 문구를 출력하고 이름부터 다시 입력 받음
-		if ((msg.phone[3] != '-') || (msg.phone[8] != '-')) {
-			printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
-			printf("처음으로 돌아갑니다.\n");
-		}
-	} while ((msg.phone[3] != '-') || (msg.phone[8] != '-'));
-
-	//주소 입력받기
-	printf("Address: ");
-	if (fgets(msg.address, sizeof(msg.address), stdin) == NULL) {
-		fprintf(stderr, "msg.address/errno[%d]", errno);
-		goto EXIT;
-	}
-	ClearStdin(msg.address);
-
-	//키 생성
 	key_t key = 0;
 	if ((key = ftok(".", 'A')) == -1) {
 		fprintf(stderr, "ftok/errno[%d]", errno);
-		goto EXIT;
+		return 0;
 	}
 
 	int qid = 0;
 	qid = msgget(key, IPC_CREAT | 0666);
 	if (qid == -1) {
 		fprintf(stderr, "msgget/errno[%d]", errno);
-		goto EXIT;
+		return 0;
 	}
 
-	if (msgsnd(qid, (void *)&msg, msg_size, IPC_NOWAIT) == -1) {
-		fprintf(stderr, "msgsnd/errno[%d]", errno);
+	while (1) {
+		memset(&msg, 0, sizeof(msg));
+
+		do {
+			printf("Name: ");
+			if(fgets(msg.name, sizeof(msg.name), stdin) == NULL) {
+				fprintf(stderr, "msg.name/errno[%d]", errno);
+				goto EXIT;
+			}
+			ClearStdin(msg.name);
+
+			if (strcmp(str_exit,msg.name) == 0) {
+				goto EXIT;
+			}
+
+			printf("Phone Num: ");
+			if (fgets(msg.phone, sizeof(msg.phone), stdin) == NULL) {
+				fprintf(stderr, "msg.phone/errno[%d]", errno);
+				goto EXIT;
+		 	}
+ 			ClearStdin(msg.phone);
+
+			if ((msg.phone[3] != '-') || (msg.phone[8] != '-')) {
+				printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
+				printf("처음으로 돌아갑니다.\n");
+			}
+		} while ((msg.phone[3] != '-') || (msg.phone[8] != '-'));
+
+		printf("Address: ");
+		if (fgets(msg.address, sizeof(msg.address), stdin) == NULL) {
+			fprintf(stderr, "msg.address/errno[%d]", errno);
+			goto EXIT;
+		}
+		ClearStdin(msg.address);
+	
+//		msg.mtype = getpid();
+		if (msgsnd(qid, (void *)&msg, msg_size, 0) == -1) {
+			fprintf(stderr, "msgsnd/errno[%d]", errno);
+			goto EXIT;
+		}
 	}
 
 EXIT:
-	if (pthread_mutex_unlock(&mutex) == -1) {
-		fprintf(stderr, "mutex_unlock/errno[%d]", errno);
-	}
-
-	if (pthread_mutex_destroy(&mutex) == -1) {
-		fprintf(stderr, "mutex_destroy/errno[%d]", errno);
-	}
+	if (msgctl(qid, IPC_RMID, 0) == -1) {
+		fprintf(stderr, "msgctl/errno[%d]", errno);
+	}	
 
 	return 0;
 }
