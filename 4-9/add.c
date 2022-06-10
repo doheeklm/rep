@@ -1,12 +1,11 @@
 #include <stdio.h>
-#include <pthread.h>	//pthread_create() pthread_join() pthread_mutex_init() pthread_mutex_destroy()
-						//pthread_mutex_lock() //pthread_mutex_unlock()
-#include <semaphore.h>	//sem_init() sem_getvalue() sem_wait() sem_post() sem_destroy()
-#include <errno.h>		//errno
-#include <string.h>		//strcmp()
-#include <stdlib.h>		//malloc() free()
-#include <stdio_ext.h>	//__fpurge()
-#include <unistd.h>		//sleep() for testing
+#include <pthread.h>
+#include <semaphore.h>	
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio_ext.h>
+#include <unistd.h>
 
 pthread_mutex_t mutex;
 
@@ -16,7 +15,6 @@ enum { EMPTY = 0, NOT_EMPTY = -1,
 		ENQ = 0, ENQ_FAIL = -1,
 		DEQ = 0, DEQ_FAIL = -1 };
 
-//주소록 정보
 typedef struct _INFO {
 	char name[13];
 	char phone[14];
@@ -24,7 +22,6 @@ typedef struct _INFO {
 	struct _INFO *next;
 } Info;
 
-//큐
 typedef struct _QUEUE {
 	Info *front;
 	Info *rear;
@@ -35,7 +32,6 @@ Queue q;
 Info *pInfo = NULL;
 
 const char* str_exit = "exit";			//Name에 exit을 입력받으면 프로그램 종료
-
 void ClearStdin(char* c);				//버퍼 삭제
 void Init(Queue *q);					//큐 초기화
 int Enqueue(Queue *q, Info *pInfo);		//스레드1 내부에서 호출 (메인)
@@ -50,115 +46,87 @@ int main()
 
 	Init(&q);
 
-	//세마포어 초기화
 	if (sem_init(&sem, 0, 0) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		return 0;
 	}
 
-	//뮤텍스 초기화
 	if (pthread_mutex_init(&mutex, NULL) != 0) {
-		if (sem_destroy(&sem) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-		}
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		goto EXIT0;
 	}
 	
-	//스레드2 생성 (인자로 포인터 변수 pInfo를 넘겨줌)
 	if (pthread_create(&tWrite, NULL, fWrite, (void *)pInfo) != 0) {
-		if (sem_destroy(&sem) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-		}
-		if (pthread_mutex_destroy(&mutex) != 0) {
-			fprintf(stderr, "errno[%d]", errno);
-		}
 		fprintf(stderr, "errno[%d]", errno);
-		exit(EXIT_FAILURE);
+		goto EXIT1;
 	}
 
 	while (1) {	
-		//pInfo 동적할당
 		pInfo = (Info *)malloc(sizeof(Info));
 		if (pInfo == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			goto EXIT;
+			goto EXIT2;
 		}
 		
 		do {
-			//pInfo 초기화
 			memset(pInfo, 0, sizeof(Info));
 
-			//이름 입력받기
 			printf("Name: ");
 			if (fgets(pInfo->name, sizeof(pInfo->name), stdin) == NULL) {
 				fprintf(stderr, "errno[%d]", errno);
-				goto EXIT;
+				goto EXIT2;
 			}
 			ClearStdin(pInfo->name);
 
-			//exit 입력받으면 프로그램 종료
 			if (strcmp(str_exit, pInfo->name) == 0) {
 				printf("입력을 종료합니다.\n");
-				goto EXIT;
+				goto EXIT2;
 			}
 
-			//전화번호 입력받기
 			printf("Phone Num: ");
 			if (fgets(pInfo->phone, sizeof(pInfo->phone), stdin) == NULL) {
 				fprintf(stderr, "errno[%d]", errno);
-				goto EXIT;
+				goto EXIT2;
 			}
 			ClearStdin(pInfo->phone);
 
-			//입력한 전화번호 형태가 잘못된 경우, 에러 문구를 출력하고 이름부터 다시 입력 받음
 			if ((pInfo->phone[3] != '-') || (pInfo->phone[8] != '-')) {
 				printf("전화번호를 xxx-xxxx-xxxx 형태로 입력해주세요.\n");
 				printf("처음으로 돌아갑니다.\n");
 			}
 		} while ((pInfo->phone[3] != '-') || (pInfo->phone[8] != '-'));
 
-		//주소 입력받기
 		printf("Address: ");
 		if (fgets(pInfo->address, sizeof(pInfo->address), stdin) == NULL) {
 			fprintf(stderr, "errno[%d]", errno);
-			goto EXIT;
+			goto EXIT2;
 		}
 		ClearStdin(pInfo->address);
 
-		//Enqueue - 큐에 주소록 정보 저장
 		if (Enqueue(&q, pInfo) == ENQ_FAIL) {
 			printf("Enqueue Fail\n");
-			goto EXIT;
+			goto EXIT2;
 		}
-		printf("<T1> [%s][%s][%s]\n", pInfo->name, pInfo->phone, pInfo->address);
 
-		//세마포어 값 1 증가
 		if (sem_post(&sem) != 0) {
 			fprintf(stderr, "errno[%d]", errno);
-			goto EXIT;
+			goto EXIT2;
 		}
 	}
 
-EXIT:
-	//세마포어 값 1 증가 안 한 상태라서 스레드2는 계속 대기중..
-	//스레드2에서 자원 회수할건 pInfo 밖에 없음
-
-	//join하기 전에 "exit"을 pInfo->name에 입력하고, 스레드2 내에서 break하는 방법??
-
+EXIT2:
 	free(pInfo);
 
-	//스레드 취소 요청
 	if (pthread_cancel(tWrite) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 	}
 	
-	//뮤텍스 소멸
+EXIT1:
 	if (pthread_mutex_destroy(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 	}
 
-	//세마포어 제거
+EXIT0:
 	if (sem_destroy(&sem) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 	}
@@ -172,18 +140,15 @@ void ClearStdin(char* c)
 		return;
 	}
 
-	//개행문자 널문자로 변환
 	if (c[strlen(c) - 1] == '\n') {
 		c[strlen(c) - 1] = '\0';
 	}
 
-	//버퍼 비우기
 	__fpurge(stdin);
 }
 
 void Init(Queue *q)
 {
-	//큐 초기화
 	q->front = NULL;
 	q->rear = NULL;
 	q->count = 0;
@@ -191,7 +156,6 @@ void Init(Queue *q)
 
 int Enqueue(Queue *q, Info *pInfo)
 {
-	//뮤텍스 락
 	if (pthread_mutex_lock(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		return ENQ_FAIL;
@@ -208,10 +172,8 @@ int Enqueue(Queue *q, Info *pInfo)
 		q->rear = q->rear->next;
 	}
 
-	//큐 갯수 1증가
 	(q->count)++;
 
-	//뮤텍스 언락
 	if (pthread_mutex_unlock(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		return ENQ_FAIL;
@@ -222,7 +184,6 @@ int Enqueue(Queue *q, Info *pInfo)
 
 int Dequeue(Queue *q, Info **ppInfo)
 {
-	//뮤텍스 락
 	if (pthread_mutex_lock(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		return DEQ_FAIL;
@@ -239,7 +200,6 @@ int Dequeue(Queue *q, Info **ppInfo)
 		(q->count)--;
 	}
 
-	//뮤텍스 언락
 	if (pthread_mutex_unlock(&mutex) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		return DEQ_FAIL;
@@ -277,8 +237,6 @@ void *fWrite(void *data)
 		}
 
 		if (ptrInfo != NULL) {	
-			//파일 열기
-			//a : (쓰기 전용) 파일이 없으면 생성하고, 있으면 파일 포인터가 파일 끝에 위치함
 			FILE* fp = NULL;
 			fp = fopen("./address.txt", "a");
 			if (fp == NULL) {
