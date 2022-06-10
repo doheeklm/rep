@@ -10,8 +10,11 @@
 #include <stdio_ext.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 #define KEY_NUM 777
+#define SEM_NAME "pSem"
 
 typedef struct _SHM {
 	char name[13];
@@ -22,28 +25,30 @@ typedef struct _SHM {
 const char* str_exit = "exit";
 void ClearStdin(char* c);
 
+
 int main()
 {
-	Shm shm;
+	sem_t* pSem;
 
+	Shm shm;
+	memset(&shm, 0, sizeof(shm));
+	
 	int shmid = 0;
-	shmid = shmget((key_t)KEY_NUM, sizeof(shm), IPC_CREAT | 0666);
+	shmid = shmget((key_t)KEY_NUM, sizeof(Shm), IPC_CREAT | 0666);
 	if (shmid == -1) {
 		fprintf(stderr, "shmget/errno[%d]", errno);
-		return 0;
+		return 0; //return 처리
 	}
 
 	void* shared_memory = (void*)0;
-
-	memset(&shm, 0, sizeof(shm));
-	struct shmid_ds buf;
 	
+//	if ((pSem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRWXO, 0)) == SEM_FAILED) {
+	if ((pSem = sem_open(SEM_NAME, O_CREAT, 0777, 0)) == SEM_FAILED) {
+		fprintf(stderr, "sem_open/errno[%d]", errno);
+		return 0; //return 처리
+	}
+
 	while (1) {
-		if (shmctl(shmid, IPC_STAT, &buf) == -1) {
-			fprintf(stderr, "shmctl/errno[%d]", errno);
-			goto EXIT;
-		}
-		
 		do {
 			printf("Name: ");
 			if(fgets(shm.name, sizeof(shm.name), stdin) == NULL) {
@@ -76,23 +81,36 @@ int main()
 		}
 		ClearStdin(shm.address);
 
-		/* 생성한 공유 메모리를 shared_memory 변수에 붙인다. */
-		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
+		if (shmctl(shmid, SHM_LOCK, 0) == -1) {
+			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
+			goto EXIT;
+		}
+		
+		if ((shared_memory = shmat(shmid, (void *)NULL, 0)) == NULL) {
 			fprintf(stderr, "shmat/errno[%d]", errno);
 			goto EXIT;
 		}
 
-		memcpy(shared_memory, Shm, sizeof(shm));
-		if (shmdt(shared_memory) == -1) {
-			fprintf(stderr, "shmdt/errno[%d]", errno);
+		memcpy(shared_memory, &shm, sizeof(shm));
+
+		if (shmctl(shmid, SHM_UNLOCK, 0) == -1) {
+			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
 		}
 
+		if (sem_post(pSem) == -1) {
+			fprintf(stderr, "sempost/errno[%d]", errno);
+			return 0;
+		}
 	}
 
 EXIT:
 	if (shmctl(shmid, IPC_RMID, 0) == -1) {
 		fprintf(stderr, "shmctl/errno[%d]", errno);	
+	}
+
+	if (sem_unlink(SEM_NAME) == -1) {
+		fprintf(stderr, "sem_unlink/errno[%d]", errno);
 	}
 
 	return 0;
