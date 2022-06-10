@@ -49,12 +49,13 @@ int main()
 	char* str;
 
 	while (1) {
-		pidSnd = buf.msg_lspid; //최근 msgsnd한 pid
-		printf("pidSnd[%d]\n", pidSnd);
-
 		//0: 메세지가 올때까지 기다린다
 		nBytes = msgrcv(qid, (void *)&msg, msg_size, (long)pidSnd, 0);
 		if (nBytes == -1) {
+			if (errno == EIDRM) { //errno43
+				printf("메시지 큐를 삭제했으므로 종료합니다.\n");
+				return 0;
+			} 
 			fprintf(stderr, "msgrcv/errno[%d]", errno);
 			break;
 		}
@@ -84,18 +85,10 @@ int main()
 			}
 		}
 
-		if ((int)pidSnd != 0) {
-			sprintf(str, "/proc/%d", (int)pidSnd); 
-			if (stat(str, &st) == -1 && errno == ENOENT) {
-				printf("exit process\n");
-				goto EXIT;
-			}
-		}
-	}
+		pidSnd = buf.msg_lspid; //최근 msgsnd한 pid
+		printf("pidSnd[%d]\n", pidSnd);
 
-EXIT:
-	if (msgctl(qid, IPC_RMID, 0) == -1) {
-		fprintf(stderr, "msgctl/errno[%d]", errno);
+
 	}
 
 	return 0;

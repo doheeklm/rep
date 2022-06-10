@@ -56,7 +56,7 @@ int main()
 			ClearStdin(msg.name);
 
 			if (strcmp(str_exit,msg.name) == 0) {
-				return 0;
+				goto EXIT;
 			}
 			
 			printf("Phone Num: ");
