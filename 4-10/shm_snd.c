@@ -82,7 +82,7 @@ int main()
 			goto EXIT;
 		}
 
-		emcpy(shared_memory, Shm, sizeof(shm));
+		memcpy(shared_memory, Shm, sizeof(shm));
 		if (shmdt(shared_memory) == -1) {
 			fprintf(stderr, "shmdt/errno[%d]", errno);
 			goto EXIT;
