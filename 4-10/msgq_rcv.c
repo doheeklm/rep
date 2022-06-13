@@ -66,24 +66,21 @@ int main()
 			return 0;
 		}
 
-//		nMsg = buf.msg_qnum; //메시지 갯수
-//		if (nMsg == 0) { //메시지를 receive 했다면, 메시지 큐의 갯수는 0
-			FILE* fp = NULL;
-			fp = fopen("./address_msgq.txt", "a");
-			if (fp == NULL) {
-				fprintf(stderr, "fopen/errno[%d]", errno);
-				break;
-			}
+		FILE* fp = NULL;
+		fp = fopen("./address_msgq.txt", "a");
+		if (fp == NULL) {
+			fprintf(stderr, "fopen/errno[%d]", errno);
+			break;
+		}
 
-			if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
-				fprintf(stderr, "fwrite/errno[%d]", errno);
-			}
-	
-			if (fclose(fp) != 0) {
-				fprintf(stderr, "fclose/errno[%d]", errno);
-				break;
-			}
-//		}
+		if (fwrite(&msg, sizeof(msg), 1, fp) != 1) {
+			fprintf(stderr, "fwrite/errno[%d]", errno);
+		}
+
+		if (fclose(fp) != 0) {
+			fprintf(stderr, "fclose/errno[%d]", errno);
+			break;
+		}
 
 		pidSnd = buf.msg_lspid; //최근 msgsnd한 pid
 		printf("pidSnd[%d]\n", pidSnd);

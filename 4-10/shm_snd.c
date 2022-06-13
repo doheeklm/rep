@@ -37,15 +37,14 @@ int main()
 	shmid = shmget((key_t)KEY_NUM, sizeof(Shm), IPC_CREAT | 0666);
 	if (shmid == -1) {
 		fprintf(stderr, "shmget/errno[%d]", errno);
-		return 0; //return 처리
+		return 0;
 	}
 
 	void* shared_memory = (void*)0;
 	
-//	if ((pSem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRWXO, 0)) == SEM_FAILED) {
 	if ((pSem = sem_open(SEM_NAME, O_CREAT, 0777, 0)) == SEM_FAILED) {
 		fprintf(stderr, "sem_open/errno[%d]", errno);
-		return 0; //return 처리
+		return 0; 
 	}
 
 	while (1) {
@@ -100,7 +99,7 @@ int main()
 
 		if (sem_post(pSem) == -1) {
 			fprintf(stderr, "sempost/errno[%d]", errno);
-			return 0;
+			goto EXIT;
 		}
 	}
 

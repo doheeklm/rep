@@ -28,7 +28,7 @@ int main()
 
 	if ((pSem = sem_open(SEM_NAME, O_CREAT, 0777, 0)) == SEM_FAILED) {
 		fprintf(stderr, "sem_open/errno[%d]", errno);
-		return 0; //return 처리
+		return 0;
 	}
 
 	int shmid = 0;
@@ -44,10 +44,12 @@ int main()
 	while (1) {
 		if (sem_wait(pSem) == -1) {
 			fprintf(stderr, "semwait[%d]", errno);	
+			goto EXIT;
 		}
 
 		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
 			fprintf(stderr, "shmat/errno[%d]", errno);
+			goto EXIT;
 		}
 
 		if (shmctl(shmid, SHM_LOCK, 0) == -1) {
