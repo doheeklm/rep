@@ -43,7 +43,7 @@ int main()
 
 	while (1) {
 		memset(&msg, 0, sizeof(msg));
-		msg.mtype = 1;
+		msg.mtype = 3;
 
 		do {
 			printf("Name: ");

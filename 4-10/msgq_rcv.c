@@ -42,8 +42,9 @@ int main()
 
 	while (1) {
 		memset(&msg, 0, sizeof(msg));
+		msg.mtype = 3;
 
-		nBytes = msgrcv(qid, (void *)&msg, msg_size, 0, 0);
+		nBytes = msgrcv(qid, (void *)&msg, msg_size, msg.mtype, 0);
 		if (nBytes == -1) {
 			if (errno == EIDRM) { //errno43
 				printf("메시지 큐를 삭제했으므로 종료합니다.\n");
