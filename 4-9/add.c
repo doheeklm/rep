@@ -29,7 +29,7 @@ typedef struct _QUEUE {
 } Queue;
 
 Queue q;
-Info *pInfo = NULL;
+int endFlag = 1;
 
 const char* str_exit = "exit";			//Name에 exit을 입력받으면 프로그램 종료
 void ClearStdin(char* c);				//버퍼 삭제
@@ -44,7 +44,9 @@ int main()
 {
 	pthread_t tWrite;
 
-	Init(&q);
+	Init(&q); //큐 초기화
+
+	Info *pInfo = NULL;
 
 	if (sem_init(&sem, 0, 0) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
@@ -56,11 +58,11 @@ int main()
 		goto EXIT0;
 	}
 	
-	if (pthread_create(&tWrite, NULL, fWrite, (void *)pInfo) != 0) {
+	if (pthread_create(&tWrite, NULL, fWrite, (void *)NULL) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
 		goto EXIT1;
 	}
-
+	
 	while (1) {	
 		pInfo = (Info *)malloc(sizeof(Info));
 		if (pInfo == NULL) {
@@ -80,6 +82,10 @@ int main()
 
 			if (strcmp(str_exit, pInfo->name) == 0) {
 				printf("입력을 종료합니다.\n");
+				endFlag = 0;
+				if (sem_post(&sem) != 0) {
+					fprintf(stderr, "errno[%d]", errno);
+				}
 				goto EXIT2;
 			}
 
@@ -115,10 +121,16 @@ int main()
 	}
 
 EXIT2:
-	free(pInfo);
+	if (pInfo != NULL) {
+		free(pInfo);
+		printf("pInfo free 완료\n");
+	}
 
-	if (pthread_cancel(tWrite) != 0) {
+	if (pthread_join(tWrite, NULL) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
+	}
+	else {
+		printf("[thread 종료 대기]\n");
 	}
 	
 EXIT1:
@@ -227,35 +239,34 @@ void *fWrite(void *data)
 			break;
 		}		
 
-		//스레드 함수 fWrite에 받은 인자 data는 전역변수 Info *pInfo와 동일함
-		Info *ptrInfo = (Info *)data;
+		if (endFlag == 0) {
+			pthread_exit((void *)0);
+		}
 
-		//Dequeue 함수의 인자로 ptrInfo의 주소를 넘겨줌
-		if (Dequeue(&q, &ptrInfo) == DEQ_FAIL) {
+		Info *tempInfo = NULL;
+		if (Dequeue(&q, &tempInfo) == DEQ_FAIL) {
 			printf("Dequeue Fail\n");
 			break;
 		}
 
-		if (ptrInfo != NULL) {	
+		if (tempInfo != NULL) {	
 			FILE* fp = NULL;
 			fp = fopen("./address.txt", "a");
 			if (fp == NULL) {
-				free(ptrInfo);
 				fprintf(stderr, "errno[%d]", errno);
-				break;
+				continue;
 			}
 
 			//파일에 구조체 통으로 입력하기
-			if (fwrite(ptrInfo, sizeof(Info), 1, fp) != 1) {
+			if (fwrite(tempInfo, sizeof(Info), 1, fp) != 1) {
 				fprintf(stderr, "errno[%d]", errno);
 			}
 
 			//파일 닫기
 			if (fclose(fp) != 0) {
 				fprintf(stderr, "errno[%d]", errno);
+				break;
 			}
-
-			free(ptrInfo);
 		}
 	}
 	
