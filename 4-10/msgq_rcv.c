@@ -21,7 +21,6 @@ typedef struct _MSG {
 int main()
 {
 	Msg msg;
-	memset(&msg, 0, sizeof(msg));
 
 	int msg_size = 0;
 	msg_size = sizeof(msg) - sizeof(msg.mtype);
@@ -39,18 +38,12 @@ int main()
 		return 0;
 	}
 
-	struct msqid_ds buf;
-	pid_t pidSnd = 0;
-
 	ssize_t nBytes = 0;
-	int nMsg = 0;
-
-	struct stat st;
-	char* str;
 
 	while (1) {
-		//0: 메세지가 올때까지 기다린다
-		nBytes = msgrcv(qid, (void *)&msg, msg_size, (long)pidSnd, 0);
+		memset(&msg, 0, sizeof(msg));
+
+		nBytes = msgrcv(qid, (void *)&msg, msg_size, 0, 0);
 		if (nBytes == -1) {
 			if (errno == EIDRM) { //errno43
 				printf("메시지 큐를 삭제했으므로 종료합니다.\n");
@@ -58,12 +51,6 @@ int main()
 			} 
 			fprintf(stderr, "msgrcv/errno[%d]", errno);
 			break;
-		}
-
-		//메시지 큐 정보를 buf에 저장
-		if (msgctl(qid, IPC_STAT, &buf) == -1) {
-			fprintf(stderr, "msgctl/errno[%d]", errno);
-			return 0;
 		}
 
 		FILE* fp = NULL;
@@ -81,9 +68,6 @@ int main()
 			fprintf(stderr, "fclose/errno[%d]", errno);
 			break;
 		}
-
-		pidSnd = buf.msg_lspid; //최근 msgsnd한 pid
-		printf("pidSnd[%d]\n", pidSnd);
 	}
 
 	return 0;

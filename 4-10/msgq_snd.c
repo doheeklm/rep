@@ -43,9 +43,7 @@ int main()
 
 	while (1) {
 		memset(&msg, 0, sizeof(msg));
-
-		msg.mtype = getpid();
-		printf("mtype[%ld]\n", msg.mtype);
+		msg.mtype = 1;
 
 		do {
 			printf("Name: ");
