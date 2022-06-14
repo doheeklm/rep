@@ -25,13 +25,11 @@ typedef struct _SHM {
 const char* str_exit = "exit";
 void ClearStdin(char* c);
 
-
 int main()
 {
 	sem_t* pSem;
 
 	Shm shm;
-	memset(&shm, 0, sizeof(shm));
 	
 	int shmid = 0;
 	shmid = shmget((key_t)KEY_NUM, sizeof(Shm), IPC_CREAT | 0666);
@@ -40,14 +38,16 @@ int main()
 		return 0;
 	}
 
-	void* shared_memory = (void*)0;
+	void* shared_memory = NULL;
 	
 	if ((pSem = sem_open(SEM_NAME, O_CREAT, 0777, 0)) == SEM_FAILED) {
 		fprintf(stderr, "sem_open/errno[%d]", errno);
-		return 0; 
+		return 0;  //dev/sem
 	}
 
 	while (1) {
+		memset(&shm, 0, sizeof(shm));
+
 		do {
 			printf("Name: ");
 			if(fgets(shm.name, sizeof(shm.name), stdin) == NULL) {
@@ -57,6 +57,9 @@ int main()
 			ClearStdin(shm.name);
 
 			if (strcmp(str_exit, shm.name) == 0) {
+				if (sem_post(pSem) == -1) {
+					fprintf(stderr, "sempost/errno[%d]", errno);
+				}
 				goto EXIT;
 			}
 
@@ -79,7 +82,7 @@ int main()
 			goto EXIT;
 		}
 		ClearStdin(shm.address);
-
+		
 		if (shmctl(shmid, SHM_LOCK, 0) == -1) {
 			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
@@ -108,8 +111,8 @@ EXIT:
 		fprintf(stderr, "shmctl/errno[%d]", errno);	
 	}
 
-	if (sem_unlink(SEM_NAME) == -1) {
-		fprintf(stderr, "sem_unlink/errno[%d]", errno);
+	if (sem_destroy(pSem) == -1) {
+		fprintf(stderr, "sem_destroy/errno[%d]", errno);
 	}
 
 	return 0;

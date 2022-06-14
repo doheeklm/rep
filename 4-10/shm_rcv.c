@@ -38,17 +38,11 @@ int main()
 		goto EXIT;
 	}
 	
-	Shm* shared_memory;
-	memset(shared_memory, 0, sizeof(Shm));
+	void* shared_memory = NULL;
 
 	while (1) {
 		if (sem_wait(pSem) == -1) {
-			fprintf(stderr, "semwait[%d]", errno);	
-			goto EXIT;
-		}
-
-		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
-			fprintf(stderr, "shmat/errno[%d]", errno);
+			fprintf(stderr, "semwait/errno[%d]", errno);	
 			goto EXIT;
 		}
 
@@ -56,15 +50,20 @@ int main()
 			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
 		}
-		
- 		FILE* fp = NULL;
+	
+		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
+			fprintf(stderr, "shmat/errno[%d]", errno);
+			goto EXIT;
+		}
+
+		FILE* fp = NULL;
 		fp = fopen("./address_shm.txt", "a");
 		if (fp == NULL) {
 			fprintf(stderr, "fopen/errno[%d]", errno);
-			break;
+			continue;
 		}
 
-		if (fwrite(shared_memory, sizeof(Shm), 1, fp) != 1) {
+		if (fwrite((Shm *)shared_memory, sizeof(Shm), 1, fp) != 1) {
 			fprintf(stderr, "fwrite/errno[%d]", errno);
 		}
 
