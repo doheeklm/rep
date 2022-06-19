@@ -37,7 +37,6 @@ void Init(Queue *q);					//큐 초기화
 int Enqueue(Queue *q, Info *pInfo);		//스레드1 내부에서 호출 (메인)
 int Dequeue(Queue *q, Info **ppInfo);	//스레드2 내부에서 호출
 int isEmpty(Queue *q);					//비어있는 큐 확인
-void cleanup_handler(void *arg);
 void *fWrite(void *data);				//스레드2에서 호출하는 함수
 
 int main()
@@ -128,9 +127,6 @@ EXIT2:
 
 	if (pthread_join(tWrite, NULL) != 0) {
 		fprintf(stderr, "errno[%d]", errno);
-	}
-	else {
-		printf("[thread 종료 대기]\n");
 	}
 	
 EXIT1:
@@ -257,12 +253,10 @@ void *fWrite(void *data)
 				continue;
 			}
 
-			//파일에 구조체 통으로 입력하기
 			if (fwrite(tempInfo, sizeof(Info), 1, fp) != 1) {
 				fprintf(stderr, "errno[%d]", errno);
 			}
 
-			//파일 닫기
 			if (fclose(fp) != 0) {
 				fprintf(stderr, "errno[%d]", errno);
 				break;
