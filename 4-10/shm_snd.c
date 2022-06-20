@@ -59,6 +59,7 @@ int main()
 			if (strcmp(str_exit, shm.name) == 0) {
 				if (sem_post(pSem) == -1) {
 					fprintf(stderr, "sempost/errno[%d]", errno);
+					goto EXIT;
 				}
 				goto EXIT;
 			}
@@ -104,11 +105,16 @@ int main()
 			fprintf(stderr, "sempost/errno[%d]", errno);
 			goto EXIT;
 		}
+
+		if (shmdt(shared_memory) == -1) {
+			fprintf(stderr, "shmdt/errno[%d]", errno);
+			goto EXIT;
+		}
 	}
 
 EXIT:
 	if (shmctl(shmid, IPC_RMID, 0) == -1) {
-		fprintf(stderr, "shmctl/errno[%d]", errno);	
+		fprintf(stderr, "shmctl_rm/errno[%d]", errno);	
 	}
 
 	if (sem_destroy(pSem) == -1) {

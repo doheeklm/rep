@@ -39,11 +39,17 @@ int main()
 	}
 	
 	void* shared_memory = NULL;
+	struct shmid_ds buf;
 
 	while (1) {
 		if (sem_wait(pSem) == -1) {
 			fprintf(stderr, "semwait/errno[%d]", errno);	
 			goto EXIT;
+		}
+		
+		if (shmctl(shmid, IPC_STAT, &buf) == -1) {
+			printf("공유메모리 제거됨 - 프로세스 종료\n");
+			return 0;
 		}
 
 		if (shmctl(shmid, SHM_LOCK, 0) == -1) {
@@ -55,7 +61,7 @@ int main()
 			fprintf(stderr, "shmat/errno[%d]", errno);
 			goto EXIT;
 		}
-
+		
 		FILE* fp = NULL;
 		fp = fopen("./address_shm.txt", "a");
 		if (fp == NULL) {
@@ -76,8 +82,17 @@ int main()
 			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
 		}
+
+		if (shmdt(shared_memory) == -1) {
+			fprintf(stderr, "shmdt/errno[%d]", errno);
+			goto EXIT;
+		}
 	}
 
 EXIT:
+	if (shmctl(shmid, IPC_RMID, 0) == -1) {
+		fprintf(stderr, "shmctl_rm/errno[%d]", errno);
+	}
+
 	return 0;
 }
