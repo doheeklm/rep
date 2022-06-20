@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <stdlib.h>
 #include <stdio_ext.h>
 #include <unistd.h>
 #include <sys/stat.h>
