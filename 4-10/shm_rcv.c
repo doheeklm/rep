@@ -55,7 +55,7 @@ int main()
 			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
 		}
-	
+	//TODO shmat 바깥으로
 		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
 			fprintf(stderr, "shmat/errno[%d]", errno);
 			goto EXIT;
