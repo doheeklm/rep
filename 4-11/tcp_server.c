@@ -3,10 +3,10 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/types.h> //socket() bind() listen() accept()
-#include <sys/socket.h> //socket() bind() listen() accept()
-#include <unistd.h> //read() write() close()
-#include <arpa/inet.h>
+#include <sys/types.h> //socket() bind() listen() accept() recv()
+#include <sys/socket.h> //socket() bind() listen() accept() recv()
+#include <unistd.h> //close()
+#include <arpa/inet.h> //htons() htonl()
 
 #define PORT 7777 //포트 번호
 #define MAX_PENDING 5 //연결요청 대기 큐의 크기
@@ -77,34 +77,33 @@ int main()
 		goto EXIT;
 	}
 
-	ssize_t rd;
+	ssize_t rcv;
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		rd = read(cSockFd, &data, sizeof(data));
-		printf("rd[%ld]\n", rd);
-
-		if (rd == -1) {
-			fprintf(stderr, "read|errno[%d]", errno);
+		rcv = recv(cSockFd, &data, sizeof(data), MSG_WAITALL);
+		//MSG_WAITALL: 읽으려는 데이터가 buffer에 다 찰때까지 대기함
+		if (rcv == -1) {
+			fprintf(stderr, "recv|errno[%d]", errno);
 			goto EXIT;
 		}
-		else if (rd != 0) {
-			FILE* fp = NULL;
-			fp = fopen("./address_tcp.txt", "a");
-			if (fp == NULL) {
-				fprintf(stderr, "fopen|errno[%d]", errno);
-				goto EXIT;
-			}
+		printf("recv[%ld]\n", rcv);
+		
+		FILE* fp = NULL;
+		fp = fopen("./address_tcp.txt", "a");
+		if (fp == NULL) {
+			fprintf(stderr, "fopen|errno[%d]", errno);
+			goto EXIT;
+		}
 
-			if (fwrite(&data, sizeof(data), 1, fp) != 1) {
-				fprintf(stderr, "fwrite|errno[%d]", errno);
-			}
+		if (fwrite(&data, sizeof(data), 1, fp) != 1) {
+			fprintf(stderr, "fwrite|errno[%d]", errno);
+		}
 
-			if (fclose(fp) != 0) {
-				fprintf(stderr, "fclose|errno[%d]", errno);
-				goto EXIT;
-			}
+		if (fclose(fp) != 0) {
+			fprintf(stderr, "fclose|errno[%d]", errno);
+			goto EXIT;
 		}
 	}
 

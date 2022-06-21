@@ -4,11 +4,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio_ext.h>
-#include <sys/types.h> //socket() connect()
-#include <sys/socket.h> //socket() connect() inet_addr()
-#include <unistd.h> //read() write() close()
-#include <arpa/inet.h> //htons() inet_addr()
-#include <netinet/in.h> //inet_addr()
+#include <sys/types.h> //socket() connect() send() send()
+#include <sys/socket.h> //socket() connect() inet_addr() send()
+#include <unistd.h> //close()
+#include <arpa/inet.h> //htons() htonl()
 
 #define PORT 7777
 
@@ -26,6 +25,7 @@ int main()
 	Data data;
 
 	int cSockFd = 0;
+	ssize_t snd = 0;
 	struct sockaddr_in sAddr;
 	socklen_t sAddrSize = sizeof(sAddr);
 
@@ -91,10 +91,12 @@ int main()
 
 		printf("%s/%s/%s", data.name, data.phone, data.address);
 
-		if (write(cSockFd, &data, sizeof(data)) == -1) {
-			fprintf(stderr, "write|errno[%d]", errno);
+		snd = send(cSockFd, &data, sizeof(data), 0);
+		if (snd == -1) {
+			fprintf(stderr, "send|errno[%d]", errno);
 			goto EXIT;
 		}
+		printf("send[%ld]\n", snd);
 	}
 
 EXIT:
