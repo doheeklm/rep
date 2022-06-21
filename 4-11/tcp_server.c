@@ -34,7 +34,6 @@ int main()
 	sAddrSize = sizeof(sAddr);
 	cAddrSize = sizeof(cAddr);
 
-	//소켓 생성
 	sSockFd = socket(PF_INET, SOCK_STREAM, 0);
 	if (sSockFd == -1) {
 		fprintf(stderr, "socket|errno[%d]", errno);
@@ -42,53 +41,51 @@ int main()
 	}
 
 	memset(&sAddr, 0, sAddrSize);
-	sAddr.sin_family = AF_INET; //IPv4 인터넷 프로토콜
-	sAddr.sin_port = htons(PORT); //사용할 포트 저장 
+	sAddr.sin_family = AF_INET;
+	sAddr.sin_port = htons(PORT);
 	if (sAddr.sin_port == -1) {
 		fprintf(stderr, "htons|errno[%d]", errno);
 		goto EXIT;
 	}
-	sAddr.sin_addr.s_addr = htonl(INADDR_ANY); //IP주소 자동으로 할당
+
+	//TODO ifconfig 내 IP주소로..
+	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (sAddr.sin_addr.s_addr == -1) {
 		fprintf(stderr, "htonl|errno[%d]", errno);
 		goto EXIT;
 	}
-	//INADDR_ANY :
-	//IP주소가 하나인 컴퓨터에서는 현재 컴퓨터의 IP주소를 소켓에 할당하며,
-	//Multi-homed(IP가 2개 이상)인 경우, 어떤 IP로 데이터가 들어오든지
-	//포트 번호만 맞으면 해당 포트로 데이터를 전달해주도록 하는 상수. 주로 서버 측에서 사용됨
 
-	//생성한 소켓을 서버 소켓으로 등록함 (성공하면 서버 소켓에 sAddr(주소 정보)가 할당됨)
 	Bind = bind(sSockFd, (struct sockaddr*)&sAddr, sAddrSize);
 	if (Bind == -1) {
 		fprintf(stderr, "bind|errno[%d]", errno);
 		goto EXIT;
 	}
 
-	//서버 소켓을 통해 클라이언트의 접속 요청을 확인하도록 설정함
 	if (listen(sSockFd, MAX_PENDING) == -1) {
 		fprintf(stderr, "listen|errno[%d]", errno);
 		goto EXIT;
 	}
 
-	//클라이언트 접속 요청 대기 및 허락함 & 클라이언트와 통신을 위해 새 소켓 생성함
+	//TODO accept 이후 sockfd 값 표기
 	if ((cSockFd = accept(sSockFd, (struct sockaddr*)&cAddr, &cAddrSize)) == -1) {
 		fprintf(stderr, "accept|errno[%d]", errno);
 		goto EXIT;
 	}
 
-	ssize_t rcv;
+	ssize_t rd = 0;
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		rcv = recv(cSockFd, &data, sizeof(data), MSG_WAITALL);
-		//MSG_WAITALL: 읽으려는 데이터가 buffer에 다 찰때까지 대기함
-		if (rcv == -1) {
-			fprintf(stderr, "recv|errno[%d]", errno);
+		//TODO 기다리는 로직
+		//원하는 바이트 수를 읽을 때까지
+		//버퍼 옮겨가기(포인터 이동)
+		rd = read(cSockFd, &data, sizeof(data));
+		if (rd == -1) {
+			fprintf(stderr, "read|errno[%d]", errno);
 			goto EXIT;
 		}
-		printf("recv[%ld]\n", rcv);
+		printf("read[%ld]\n", rd);
 		
 		FILE* fp = NULL;
 		fp = fopen("./address_tcp.txt", "a");
@@ -96,7 +93,8 @@ int main()
 			fprintf(stderr, "fopen|errno[%d]", errno);
 			goto EXIT;
 		}
-
+		
+		//(데이터가 char 아니고 int였다면 바이트 오더링:ntohl/ltohn 필요)
 		if (fwrite(&data, sizeof(data), 1, fp) != 1) {
 			fprintf(stderr, "fwrite|errno[%d]", errno);
 		}
@@ -108,6 +106,7 @@ int main()
 	}
 
 EXIT:
+	//TODO shutdown 제거
 	if (shutdown(cSockFd, SHUT_RDWR) == -1) {
 		fprintf(stderr, "shutdown|errno[%d]", errno);
 	}
