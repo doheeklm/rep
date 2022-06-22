@@ -48,7 +48,7 @@ int main()
 
 	while (1) {
 		sem_getvalue(pSem, &sval);
-		printf("sem1[%d] - Waiting... \n", sval);
+		printf("세마포어 값 확인1[%d] - Waiting... \n", sval);
 
 		if (sem_wait(pSem) == -1) {
 			fprintf(stderr, "semwait/errno[%d]", errno);	
@@ -56,7 +56,7 @@ int main()
 		}
 		
 		sem_getvalue(pSem, &sval);
-		printf("sem2[%d]\n", sval);
+		printf("세마포어 값 확인2[%d]\n", sval);
 
 		if (shmctl(shmid, IPC_STAT, &buf) == -1) {
 			printf("공유메모리 제거됨 - 프로세스 종료\n");
@@ -67,7 +67,7 @@ int main()
 			fprintf(stderr, "shmctl_lock/errno[%d]", errno);
 			goto EXIT;
 		}
-	//TODO shmat 바깥으로
+	//TODO shmat while문 밖으로 보냈음
 	//	if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
 	//		fprintf(stderr, "shmat/errno[%d]", errno);
 	//		goto EXIT;
@@ -106,7 +106,7 @@ EXIT:
 	}
 
 	sem_getvalue(pSem, &sval);
-	printf("sem3[%d]\n", sval);
+	printf("세마포어 값 확인3[%d]\n", sval);
 
 
 	return 0;

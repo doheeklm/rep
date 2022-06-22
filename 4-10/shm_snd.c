@@ -54,7 +54,7 @@ int main()
 		memset(&shm, 0, sizeof(shm));
 
 		sem_getvalue(pSem, &sval);
-		printf("sem1[%d]\n", sval);
+		printf("세마포어 값 확인1[%d]\n", sval);
 
 		do {
 			printf("Name: ");
@@ -96,7 +96,7 @@ int main()
 			goto EXIT;
 		}
 	
-	//TODO shmat 바깥으로	
+	//TODO shmat while문 밖으로 보냈음
 	//	if ((shared_memory = shmat(shmid, (void *)NULL, 0)) == NULL) {
 	//		fprintf(stderr, "shmat/errno[%d]", errno);
 	//		goto EXIT;
@@ -110,7 +110,7 @@ int main()
 		}
 
 		sem_getvalue(pSem, &sval);
-		printf("sem2[%d]\n", sval);
+		printf("세마포어 값 확인2[%d]\n", sval);
 
 		if (sem_post(pSem) == -1) {
 			fprintf(stderr, "sempost/errno[%d]", errno);
@@ -118,7 +118,7 @@ int main()
 		}
 
 		sem_getvalue(pSem, &sval);
-		printf("sem3[%d]\n", sval);
+		printf("세마포어 값 확인3[%d]\n", sval);
 
 	//	if (shmdt(shared_memory) == -1) {
 	//		fprintf(stderr, "shmdt/errno[%d]", errno);
@@ -132,14 +132,14 @@ EXIT:
 	}
 
 	sem_getvalue(pSem, &sval);
-	printf("sem4[%d]\n", sval);
+	printf("세마포어 값 확인4[%d]\n", sval);
 
 	if (sem_destroy(pSem) == -1) {
 		fprintf(stderr, "sem_destroy/errno[%d]", errno);
 	}
 
 	sem_getvalue(pSem, &sval);
-	printf("sem5[%d]\n", sval);
+	printf("세마포어 값 확인5[%d]\n", sval);
 
 	return 0;
 }
