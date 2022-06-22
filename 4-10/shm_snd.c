@@ -27,7 +27,8 @@ void ClearStdin(char* c);
 int main()
 {
 	sem_t* pSem;
-
+	int sval = 0;
+	
 	Shm shm;
 	
 	int shmid = 0;
@@ -44,8 +45,16 @@ int main()
 		return 0;  //dev/sem
 	}
 
+//	if ((shared_memory = shmat(shmid, (void *)NULL, 0)) == NULL) {
+//		fprintf(stderr, "shmat/errno[%d]", errno);
+//		goto EXIT;
+//	}
+
 	while (1) {
 		memset(&shm, 0, sizeof(shm));
+
+		sem_getvalue(pSem, &sval);
+		printf("sem1[%d]\n", sval);
 
 		do {
 			printf("Name: ");
@@ -100,10 +109,16 @@ int main()
 			goto EXIT;
 		}
 
+		sem_getvalue(pSem, &sval);
+		printf("sem2[%d]\n", sval);
+
 		if (sem_post(pSem) == -1) {
 			fprintf(stderr, "sempost/errno[%d]", errno);
 			goto EXIT;
 		}
+
+		sem_getvalue(pSem, &sval);
+		printf("sem3[%d]\n", sval);
 
 		if (shmdt(shared_memory) == -1) {
 			fprintf(stderr, "shmdt/errno[%d]", errno);
@@ -116,9 +131,15 @@ EXIT:
 		fprintf(stderr, "shmctl_rm/errno[%d]", errno);	
 	}
 
+	sem_getvalue(pSem, &sval);
+	printf("sem4[%d]\n", sval);
+
 	if (sem_destroy(pSem) == -1) {
 		fprintf(stderr, "sem_destroy/errno[%d]", errno);
 	}
+
+	sem_getvalue(pSem, &sval);
+	printf("sem5[%d]\n", sval);
 
 	return 0;
 }
