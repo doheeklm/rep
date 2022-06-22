@@ -41,10 +41,10 @@ int main()
 	void* shared_memory = NULL;
 	struct shmid_ds buf;
 
-	/*if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
+	if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
 		fprintf(stderr, "shmat/errno[%d]", errno);
 		goto EXIT;
-	}*/
+	}
 
 	while (1) {
 		sem_getvalue(pSem, &sval);
@@ -68,10 +68,10 @@ int main()
 			goto EXIT;
 		}
 	//TODO shmat 바깥으로
-		if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
-			fprintf(stderr, "shmat/errno[%d]", errno);
-			goto EXIT;
-		}
+	//	if ((shared_memory = shmat(shmid, (void *)0, 0)) == NULL) {
+	//		fprintf(stderr, "shmat/errno[%d]", errno);
+	//		goto EXIT;
+	//	}
 		
 		FILE* fp = NULL;
 		fp = fopen("./address_shm.txt", "a");
@@ -94,10 +94,10 @@ int main()
 			goto EXIT;
 		}
 
-		if (shmdt(shared_memory) == -1) {
-			fprintf(stderr, "shmdt/errno[%d]", errno);
-			goto EXIT;
-		}
+	//	if (shmdt(shared_memory) == -1) {
+	//		fprintf(stderr, "shmdt/errno[%d]", errno);
+	//		goto EXIT;
+	//	}
 	}
 
 EXIT:
