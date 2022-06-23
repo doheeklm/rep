@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <sys/types.h> //socket() bind() listen() accept() recv()
 #include <sys/socket.h> //socket() bind() listen() accept() recv()
-#include <unistd.h> //close()
+#include <unistd.h> //close() fcntl()
+#include <fcntl.h> //fcntl()
 #include <arpa/inet.h> //htons() htonl()
 
-#define PORT 7777 //포트 번호
-#define MAX_PENDING 5 //연결요청 대기 큐의 크기
+#define PORT 7777
+#define MAX_PENDING 5
 
 typedef struct _DATA {
 	char name[13];
@@ -21,12 +22,12 @@ int main()
 {
 	Data data;
 
-	int sSockFd; //서버 소켓
-	int cSockFd; //클라이언트 소켓
-	int Bind; //bind 성공여부
+	int sSockFd;
+	int cSockFd;
+	int Bind;
 	
-	struct sockaddr_in sAddr; //서버의 주소 정보 
-	struct sockaddr_in cAddr; //클라이언트의 주소 정보 
+	struct sockaddr_in sAddr;
+	struct sockaddr_in cAddr; 
 	
 	socklen_t sAddrSize = 0;
 	socklen_t cAddrSize = 0;
@@ -36,83 +37,102 @@ int main()
 
 	sSockFd = socket(PF_INET, SOCK_STREAM, 0);
 	if (sSockFd == -1) {
-		fprintf(stderr, "socket|errno[%d]", errno);
+		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
 	}
 
 	memset(&sAddr, 0, sAddrSize);
 	sAddr.sin_family = AF_INET;
-	sAddr.sin_port = htons(PORT);
+	sAddr.sin_port = htons(PORT); //포트 번호 바이트오더링
 	if (sAddr.sin_port == -1) {
-		fprintf(stderr, "htons|errno[%d]", errno);
+		fprintf(stderr, "htons|errno[%d]\n", errno);
 		goto EXIT;
 	}
 
-	//TODO ifconfig 내 IP주소로..
+	//[O] TODO INADDR_ANY 사용하지 않고  ifconfig 통해 내 IP주소 확인하기
+	//const char* addr = "170.20.225.235";
+	//unsigned int conv_addr = inet_addr(addr);
+	//if (conv_addr == -1) {
+	//	fprintf(stderr, "inet_addr|errno[%d]", errno);
+	//	goto EXIT;
+	//}
+	//sAddr.sin_addr.s_addr = conv_addr;
+	//---->[errno 99]:cannot assign requested address
 	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (sAddr.sin_addr.s_addr == -1) {
-		fprintf(stderr, "htonl|errno[%d]", errno);
+		fprintf(stderr, "htonl|errno[%d]\n", errno);
 		goto EXIT;
 	}
-
+	
 	Bind = bind(sSockFd, (struct sockaddr*)&sAddr, sAddrSize);
 	if (Bind == -1) {
-		fprintf(stderr, "bind|errno[%d]", errno);
+		fprintf(stderr, "bind|errno[%d]\n", errno);
 		goto EXIT;
 	}
 
 	if (listen(sSockFd, MAX_PENDING) == -1) {
-		fprintf(stderr, "listen|errno[%d]", errno);
+		fprintf(stderr, "listen|errno[%d]\n", errno);
 		goto EXIT;
 	}
 
-	//TODO accept 이후 sockfd 값 표기
+	//[O] TODO accept 이후 sockfd 값 표기
 	if ((cSockFd = accept(sSockFd, (struct sockaddr*)&cAddr, &cAddrSize)) == -1) {
-		fprintf(stderr, "accept|errno[%d]", errno);
+		fprintf(stderr, "accept|errno[%d]\n", errno);
 		goto EXIT;
 	}
+	printf("cSockFd[%d]\n", cSockFd);
 
 	ssize_t rd = 0;
+
+	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		//TODO 기다리는 로직
-		//원하는 바이트 수를 읽을 때까지
-		//버퍼 옮겨가기(포인터 이동)
-		rd = read(cSockFd, &data, sizeof(data));
-		if (rd == -1) {
-			fprintf(stderr, "read|errno[%d]", errno);
-			goto EXIT;
+		//[O] TODO read
+		while (1) {
+			rd = read(cSockFd, &data, sizeof(data));
+			if (rd == -1) {
+				fprintf(stderr, "read|errno[%d]\n", errno);
+				goto EXIT;
+			}
+			else if (rd > 0 && rd < sizeof(data)) {
+				printf("read[%ld]\n", rd);
+				continue;
+			}
+			else if (rd == sizeof(data)) {
+				printf("원하는 바이트 수를 입력 받았습니다.\n");
+				break;
+			}
+			else if (rd == 0) {
+				printf("읽을 데이터가 없어 종료합니다.\n");
+				goto EXIT;
+			}
 		}
-		printf("read[%ld]\n", rd);
-		
+
 		FILE* fp = NULL;
 		fp = fopen("./address_tcp.txt", "a");
 		if (fp == NULL) {
-			fprintf(stderr, "fopen|errno[%d]", errno);
+			fprintf(stderr, "fopen|errno[%d]\n", errno);
 			goto EXIT;
 		}
 		
 		//(데이터가 char 아니고 int였다면 바이트 오더링:ntohl/ltohn 필요)
 		if (fwrite(&data, sizeof(data), 1, fp) != 1) {
-			fprintf(stderr, "fwrite|errno[%d]", errno);
+			fprintf(stderr, "fwrite|errno[%d]\n", errno);
 		}
-
 		if (fclose(fp) != 0) {
-			fprintf(stderr, "fclose|errno[%d]", errno);
+			fprintf(stderr, "fclose|errno[%d]\n", errno);
 			goto EXIT;
 		}
+
 	}
 
 EXIT:
-	//TODO shutdown 제거
-	if (shutdown(cSockFd, SHUT_RDWR) == -1) {
-		fprintf(stderr, "shutdown|errno[%d]", errno);
-	}
+	//[O] TODO shutdown 제거
 
 	if (close(cSockFd) == -1) {
-		fprintf(stderr, "close|errno[%d]", errno);
+		fprintf(stderr, "close|errno[%d]\n", errno);
 	}
 
 	return 0;

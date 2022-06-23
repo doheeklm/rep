@@ -17,7 +17,7 @@ typedef struct _Data {
 	char address[151];
 } Data; 
 
-const char* str_exit = "exit\n"; //TODO 버퍼 처리되면 개행문자 제거
+const char* str_exit = "exit";
 void ClearStdin(char* c);
 
 int main()
@@ -41,27 +41,40 @@ int main()
 		goto EXIT;
 	}
 	
-	//TODO IP주소 변환해서 수정하기
-	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (sAddr.sin_addr.s_addr == -1) {
-		fprintf(stderr, "htonl|errno[%d]", errno);
+	//[O] TODO INADDR_ANY 사용하지 않고 ifconfig 통해 IP주소 확인 후 변환
+	//sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	const char* addr = "127.0.0.1";
+	unsigned int conv_addr = inet_addr(addr);
+	if (conv_addr == -1) {
+		fprintf(stderr, "inet_addr|errno[%d]", errno);
+			goto EXIT;
+	}
+	sAddr.sin_addr.s_addr = conv_addr;
+
+	//---->[errno 98]:address already in use
+	const int flag = 1;
+	int SetSockOpt = setsockopt(cSockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
+	//setsockopt(소켓번호, 옵션의 종류, 설정을 위한 소켓 옵션의 번호, 설정값이 저장된 주소값, 그 주소값 버퍼의 크기)
+	if (SetSockOpt == -1) {
+		fprintf(stderr, "setsockopt|errno[%d]", errno);
 		goto EXIT;
 	}
 
-	//TODO connect 이후 sockfd 값 표기
+	//[O] TODO connect 이후 sockfd 값 표기
 	if (connect(cSockFd, (struct sockaddr*)&sAddr, sAddrSize) == -1) {
 		fprintf(stderr, "connect|errno[%d]", errno);
 		goto EXIT;
 	}
+	printf("cSockFd[%d]\n", cSockFd);
 	
 	ssize_t wr = 0;
+
+	printf("입력해야할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		//TODO 기다리는 로직
-		//원하는 바이트 수를 작성할 때까지
-		//버퍼 옮겨가기(포인터 이동)
+		//[X] TODO write
 		do {
 			printf("Name: ");
 			if (fgets(data.name, sizeof(data.name), stdin) == NULL) {
@@ -69,12 +82,11 @@ int main()
 				goto EXIT;
 			}
 			ClearStdin(data.name);
-			//TODO 이름 버퍼 수정
+			//[O] TODO 이름 버퍼 수정 - 오타였음..
 			
 			if (strcmp(str_exit, data.name) == 0) {
 				goto EXIT;
-				//TODO 서버에서 종료처리
-				//read가 0일 때 종료
+				//[O] TODO 서버에서 종료처리 - 읽은 데이터가 0일 때 종료
 			}
 
 			printf("Phone Num: ");
@@ -97,7 +109,7 @@ int main()
 		}
 		ClearStdin(data.address);
 
-		printf("%s/%s/%s", data.name, data.phone, data.address);
+		printf("%s|%s|%s\n", data.name, data.phone, data.address);
 
 		wr = write(cSockFd, &data, sizeof(data));
 		if (wr == -1) {
@@ -108,15 +120,12 @@ int main()
 	}
 
 EXIT:
-	//TODO shutdown 제거
-	if (shutdown(cSockFd, SHUT_RDWR) == -1) {
-		fprintf(stderr, "shutdown|errno[%d]", errno);
-	}
+	//[O] TODO shutdown 제거
 
 	if (close(cSockFd) == -1) {
 		fprintf(stderr, "close|errno[%d]", errno);	
 	}
-	
+
 	return 0;
 }
 
@@ -127,7 +136,7 @@ void ClearStdin(char* c)
 	}
 
 	if (c[strlen(c) - 1] == '\n') {
-		c[strlen(c) - 1] == '\0';
+		c[strlen(c) - 1] = '\0';
 	}
 
 	__fpurge(stdin);
