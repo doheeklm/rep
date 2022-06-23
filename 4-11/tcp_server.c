@@ -82,30 +82,33 @@ int main()
 	}
 	printf("cSockFd[%d]\n", cSockFd);
 
-	ssize_t rd = 0;
-
 	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
+		ssize_t rd = 0;
+		ssize_t totalRd = 0;
+
 		//[O] TODO read
 		while (1) {
-			rd = read(cSockFd, &data, sizeof(data));
+			rd = read(cSockFd, &data + totalRd, sizeof(data) - totalRd);
 			if (rd == -1) {
 				fprintf(stderr, "read|errno[%d]\n", errno);
 				goto EXIT;
 			}
 			else if (rd > 0 && rd < sizeof(data)) {
 				printf("read[%ld]\n", rd);
+				totalRd += rd;
+				printf("totalRd[%ld]\n", totalRd);
 				continue;
 			}
 			else if (rd == sizeof(data)) {
-				printf("원하는 바이트 수를 입력 받았습니다.\n");
+				printf("read[%ld]:데이터 수신|파일 작성중\n", rd);
 				break;
 			}
 			else if (rd == 0) {
-				printf("읽을 데이터가 없어 종료합니다.\n");
+				printf("read[exit]:프로그램 종료\n");
 				goto EXIT;
 			}
 		}

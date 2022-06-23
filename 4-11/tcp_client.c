@@ -67,14 +67,11 @@ int main()
 	}
 	printf("cSockFd[%d]\n", cSockFd);
 	
-	ssize_t wr = 0;
-
 	printf("입력해야할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		//[X] TODO write
 		do {
 			printf("Name: ");
 			if (fgets(data.name, sizeof(data.name), stdin) == NULL) {
@@ -82,7 +79,7 @@ int main()
 				goto EXIT;
 			}
 			ClearStdin(data.name);
-			//[O] TODO 이름 버퍼 수정 - 오타였음..
+			//[O] TODO 이름 버퍼 수정 - 오타
 			
 			if (strcmp(str_exit, data.name) == 0) {
 				goto EXIT;
@@ -111,12 +108,27 @@ int main()
 
 		printf("%s|%s|%s\n", data.name, data.phone, data.address);
 
-		wr = write(cSockFd, &data, sizeof(data));
-		if (wr == -1) {
-			fprintf(stderr, "write|errno[%d]", errno);
-			goto EXIT;
+		ssize_t wr = 0;
+		ssize_t totalWr = 0;
+
+		//[O] TODO write
+		while (1) {
+			wr = write(cSockFd, &data + totalWr, sizeof(data) - totalWr);
+			if (wr == -1) {
+				fprintf(stderr, "write|errno[%d]", errno);
+				goto EXIT;
+			}
+			else if (wr > 0 && wr < sizeof(data)) {
+				printf("write[%ld]\n", wr);
+				totalWr += wr;
+				printf("totalWr[%ld]\n", totalWr);
+				continue;
+			}
+			else if (wr == sizeof(data)) {
+				printf("write[%ld]:데이터 송신\n", wr);
+				break;
+			}
 		}
-		printf("write[%ld]\n", wr);
 	}
 
 EXIT:
