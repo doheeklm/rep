@@ -3,10 +3,9 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/types.h> //socket() bind() listen() accept() recv()
-#include <sys/socket.h> //socket() bind() listen() accept() recv()
-#include <unistd.h> //close() fcntl()
-#include <fcntl.h> //fcntl()
+#include <sys/types.h> //socket() bind() listen() accept() 
+#include <sys/socket.h> //socket() bind() listen() accept()
+#include <unistd.h> //read() close()
 #include <arpa/inet.h> //htons() htonl()
 
 #define PORT 7777
@@ -43,21 +42,12 @@ int main()
 
 	memset(&sAddr, 0, sAddrSize);
 	sAddr.sin_family = AF_INET;
-	sAddr.sin_port = htons(PORT); //포트 번호 바이트오더링
+	sAddr.sin_port = htons(PORT);
 	if (sAddr.sin_port == -1) {
 		fprintf(stderr, "htons|errno[%d]\n", errno);
 		goto EXIT;
 	}
 
-	//[O] TODO INADDR_ANY 사용하지 않고  ifconfig 통해 내 IP주소 확인하기
-	//const char* addr = "170.20.225.235";
-	//unsigned int conv_addr = inet_addr(addr);
-	//if (conv_addr == -1) {
-	//	fprintf(stderr, "inet_addr|errno[%d]", errno);
-	//	goto EXIT;
-	//}
-	//sAddr.sin_addr.s_addr = conv_addr;
-	//---->[errno 99]:cannot assign requested address
 	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (sAddr.sin_addr.s_addr == -1) {
 		fprintf(stderr, "htonl|errno[%d]\n", errno);
@@ -75,7 +65,6 @@ int main()
 		goto EXIT;
 	}
 
-	//[O] TODO accept 이후 sockfd 값 표기
 	if ((cSockFd = accept(sSockFd, (struct sockaddr*)&cAddr, &cAddrSize)) == -1) {
 		fprintf(stderr, "accept|errno[%d]\n", errno);
 		goto EXIT;
@@ -90,25 +79,23 @@ int main()
 		ssize_t rd = 0;
 		ssize_t totalRd = 0;
 
-		//[O] TODO read
 		while (1) {
 			rd = read(cSockFd, &data + totalRd, sizeof(data) - totalRd);
 			if (rd == -1) {
 				fprintf(stderr, "read|errno[%d]\n", errno);
 				goto EXIT;
 			}
-			else if (rd > 0 && rd < sizeof(data)) {
-				printf("read[%ld]\n", rd);
-				totalRd += rd;
-				printf("totalRd[%ld]\n", totalRd);
-				continue;
-			}
-			else if (rd == sizeof(data)) {
-				printf("read[%ld]:데이터 수신|파일 작성중\n", rd);
+			printf("read[%ld]\n", rd);
+
+			totalRd += rd;
+			printf("totalRd[%ld]\n", totalRd);
+
+			if (totalRd == sizeof(data)) {
+				printf("totalRd[%ld]:데이터 수신|파일 작성중\n", totalRd);
 				break;
 			}
-			else if (rd == 0) {
-				printf("read[exit]:프로그램 종료\n");
+			else if (totalRd == 0) {
+				printf("totalRd[%ld]:프로그램 종료\n", totalRd);
 				goto EXIT;
 			}
 		}
@@ -120,7 +107,6 @@ int main()
 			goto EXIT;
 		}
 		
-		//(데이터가 char 아니고 int였다면 바이트 오더링:ntohl/ltohn 필요)
 		if (fwrite(&data, sizeof(data), 1, fp) != 1) {
 			fprintf(stderr, "fwrite|errno[%d]\n", errno);
 		}
@@ -132,8 +118,6 @@ int main()
 	}
 
 EXIT:
-	//[O] TODO shutdown 제거
-
 	if (close(cSockFd) == -1) {
 		fprintf(stderr, "close|errno[%d]\n", errno);
 	}

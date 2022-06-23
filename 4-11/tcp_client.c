@@ -4,10 +4,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio_ext.h>
-#include <sys/types.h> //socket() connect() send() send()
-#include <sys/socket.h> //socket() connect() inet_addr() send()
-#include <unistd.h> //close()
-#include <arpa/inet.h> //htons() htonl()
+#include <sys/types.h> //socket() connect()
+#include <sys/socket.h> //socket() connect() inet_addr()
+#include <unistd.h> //write() close()
+#include <arpa/inet.h> //htons()
 
 #define PORT 7777
 
@@ -29,7 +29,7 @@ int main()
 	socklen_t sAddrSize = sizeof(sAddr);
 
 	if ((cSockFd = (socket(PF_INET, SOCK_STREAM, 0))) == -1) {
-		fprintf(stderr, "socket|errno[%d]", errno);
+		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
 	}
 
@@ -37,32 +37,28 @@ int main()
 	sAddr.sin_family = AF_INET;
 	sAddr.sin_port = htons(PORT);
 	if (sAddr.sin_port == -1) {
-		fprintf(stderr, "htons|errno[%d]", errno);
+		fprintf(stderr, "htons|errno[%d]\n", errno);
 		goto EXIT;
 	}
 	
-	//[O] TODO INADDR_ANY 사용하지 않고 ifconfig 통해 IP주소 확인 후 변환
-	//sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	const char* addr = "127.0.0.1";
+	//const char* addr = "172.20.225.235"; //errno[133]
 	unsigned int conv_addr = inet_addr(addr);
 	if (conv_addr == -1) {
-		fprintf(stderr, "inet_addr|errno[%d]", errno);
+		fprintf(stderr, "inet_addr|errno[%d]\n", errno);
 			goto EXIT;
 	}
 	sAddr.sin_addr.s_addr = conv_addr;
 
-	//---->[errno 98]:address already in use
 	const int flag = 1;
 	int SetSockOpt = setsockopt(cSockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
-	//setsockopt(소켓번호, 옵션의 종류, 설정을 위한 소켓 옵션의 번호, 설정값이 저장된 주소값, 그 주소값 버퍼의 크기)
 	if (SetSockOpt == -1) {
-		fprintf(stderr, "setsockopt|errno[%d]", errno);
+		fprintf(stderr, "setsockopt|errno[%d]\n", errno);
 		goto EXIT;
 	}
 
-	//[O] TODO connect 이후 sockfd 값 표기
 	if (connect(cSockFd, (struct sockaddr*)&sAddr, sAddrSize) == -1) {
-		fprintf(stderr, "connect|errno[%d]", errno);
+		fprintf(stderr, "connect|errno[%d]\n", errno);
 		goto EXIT;
 	}
 	printf("cSockFd[%d]\n", cSockFd);
@@ -75,20 +71,18 @@ int main()
 		do {
 			printf("Name: ");
 			if (fgets(data.name, sizeof(data.name), stdin) == NULL) {
-				fprintf(stderr, "fgets|errno[%d]", errno);
+				fprintf(stderr, "fgets|errno[%d]\n", errno);
 				goto EXIT;
 			}
 			ClearStdin(data.name);
-			//[O] TODO 이름 버퍼 수정 - 오타
 			
 			if (strcmp(str_exit, data.name) == 0) {
 				goto EXIT;
-				//[O] TODO 서버에서 종료처리 - 읽은 데이터가 0일 때 종료
 			}
 
 			printf("Phone Num: ");
 			if (fgets(data.phone, sizeof(data.phone), stdin) == NULL) {
-				fprintf(stderr, "fgets|errno[%d]", errno);
+				fprintf(stderr, "fgets|errno[%d]\n", errno);
 				goto EXIT;
 			}
 			ClearStdin(data.phone);
@@ -101,41 +95,35 @@ int main()
 
 		printf("Address: ");
 		if (fgets(data.address, sizeof(data.address), stdin) == NULL) {
-			fprintf(stderr, "fgets|errno[%d]", errno);
+			fprintf(stderr, "fgets|errno[%d]\n", errno);
 			goto EXIT;
 		}
 		ClearStdin(data.address);
 
-		printf("%s|%s|%s\n", data.name, data.phone, data.address);
-
 		ssize_t wr = 0;
 		ssize_t totalWr = 0;
 
-		//[O] TODO write
 		while (1) {
 			wr = write(cSockFd, &data + totalWr, sizeof(data) - totalWr);
 			if (wr == -1) {
-				fprintf(stderr, "write|errno[%d]", errno);
+				fprintf(stderr, "write|errno[%d]\n", errno);
 				goto EXIT;
 			}
-			else if (wr > 0 && wr < sizeof(data)) {
-				printf("write[%ld]\n", wr);
-				totalWr += wr;
-				printf("totalWr[%ld]\n", totalWr);
-				continue;
-			}
-			else if (wr == sizeof(data)) {
-				printf("write[%ld]:데이터 송신\n", wr);
+			printf("write[%ld]\n", wr);
+			
+			totalWr += wr;
+			printf("totalWr[%ld]\n", totalWr);
+			
+			if (totalWr == sizeof(data)) {
+				printf("totalWr[%ld]:데이터 송신\n", totalWr);
 				break;
 			}
 		}
 	}
 
 EXIT:
-	//[O] TODO shutdown 제거
-
 	if (close(cSockFd) == -1) {
-		fprintf(stderr, "close|errno[%d]", errno);	
+		fprintf(stderr, "close|errno[%d]\n", errno);	
 	}
 
 	return 0;
