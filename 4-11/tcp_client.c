@@ -28,7 +28,8 @@ int main()
 	struct sockaddr_in sAddr;
 	socklen_t sAddrSize = sizeof(sAddr);
 
-	if ((cSockFd = (socket(PF_INET, SOCK_STREAM, 0))) == -1) {
+	cSockFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (cSockFd == -1) {
 		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
 	}

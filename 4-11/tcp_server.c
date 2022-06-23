@@ -34,7 +34,7 @@ int main()
 	sAddrSize = sizeof(sAddr);
 	cAddrSize = sizeof(cAddr);
 
-	sSockFd = socket(PF_INET, SOCK_STREAM, 0);
+	sSockFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sSockFd == -1) {
 		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
