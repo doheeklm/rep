@@ -85,11 +85,11 @@ int main()
 				printf("totalRcv[%ld]:데이터 수신|파일 작성중\n", totalRcv);
 				break;
 			}
-
-			 if (totalRcv == 0) {
-				printf("totalRcv[%ld]:프로그램 종료\n", totalRcv);
+			else if (totalRcv == 8) {
+				printf("totalRcv[%ld]:exit 입력받아 프로그램 종료함\n", totalRcv);
 				goto EXIT;
 			}
+
 		}
 
 		FILE* fp = NULL;
