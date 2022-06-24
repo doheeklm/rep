@@ -48,9 +48,10 @@ int main()
 		goto EXIT;
 	}
 
+	//sAddr.sin_addr.s_addr = inet_addr("172.20.234.142");
 	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (sAddr.sin_addr.s_addr == -1) {
-		fprintf(stderr, "htonl|errno[%d]\n", errno);
+		fprintf(stderr, "inet_addr|errno[%d]\n", errno);
 		goto EXIT;
 	}
 	
@@ -69,7 +70,7 @@ int main()
 		fprintf(stderr, "accept|errno[%d]\n", errno);
 		goto EXIT;
 	}
-	printf("cSockFd[%d]\n", cSockFd);
+	printf("sSockFd[%d] cSockFd[%d]\n", sSockFd, cSockFd);
 
 	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
