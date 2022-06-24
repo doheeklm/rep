@@ -4,8 +4,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio_ext.h>
-#include <sys/types.h> //socket() recvfrom() sendto()
-#include <sys/socket.h> //socket() recvfrom() sendto()
+#include <sys/types.h> //socket() sendto()
+#include <sys/socket.h> //socket() sendto()
 #include <unistd.h> //close()
 #include <arpa/inet.h> //htons() htonl()
 
@@ -28,7 +28,7 @@ int main()
 	struct sockaddr_in sAddr;
 	socklen_t sAddrSize = sizeof(sAddr);
 
-	cSockFd = socket(PF_INET, SOCK_DGRAM, 0);
+	cSockFd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (cSockFd == -1) {
 		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
@@ -43,6 +43,7 @@ int main()
 	}
 	
 	const char* addr = "127.0.0.1";
+	//const char* addr = "172.20.234.142";
 	unsigned int conv_addr = inet_addr(addr);
 	if (conv_addr == -1) {
 		fprintf(stderr, "inet_addr|errno[%d]\n", errno);
@@ -98,24 +99,27 @@ int main()
 
 		printf("%s|%s|%s\n", data.name, data.phone, data.address);
 
-		ssize_t rcv = 0;
-		ssize_t totalRcv = 0;
+		ssize_t snd = 0;
+		ssize_t totalSnd = 0;
 
 		while (1) { 
-			rcv = recvfrom(cSockFd, &data + totalRcv, sizeof(data) - totalRcv, 0, (struct sockaddr*)&sAddr, &sAddrSize);
-			if (rcv == -1) {
-				fprintf(stderr, "recvfrom|errno[%d]\n", errno);
+			snd = sendto(cSockFd, &data + totalSnd, sizeof(data) - totalSnd, 0, (struct sockaddr*)&sAddr, sAddrSize);
+			if (snd == -1) {
+				fprintf(stderr, "sendto|errno[%d]\n", errno);
 				goto EXIT;
 			}
-			else if (rcv > 0 && rcv < sizeof(data)) {
-				printf("recv[%ld]\n", rcv);
-				totalRcv += rcv;
-				printf("totalRcv[%ld]\n", totalRcv);
-				continue;
-			}
-			else if (rcv == sizeof(data)) {
-				printf("recv[%ld]:데이터 송신\n", rcv);;
+			printf("snd[%ld]\n", snd);
+
+			totalSnd += snd;
+			printf("totalSnd[%ld]\n", totalSnd);
+
+			if (totalSnd == sizeof(data)) {
+				printf("totalSnd[%ld]:데이터 송신\n", totalSnd);
 				break;
+			}
+			else if (totalSnd == 0) {
+				printf("totalSnd[%ld]:프로그램 종료\n", totalSnd);
+				goto EXIT;
 			}
 		}
 	}

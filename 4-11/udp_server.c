@@ -3,8 +3,8 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/types.h> //socket() bind() sendto() recvfrom()
-#include <sys/socket.h> //socket() bind() sendto() recvfrom()
+#include <sys/types.h> //socket() bind() recvfrom()
+#include <sys/socket.h> //socket() bind() recvfrom()
 #include <unistd.h> //close()
 #include <arpa/inet.h> //htons() htonl()
 
@@ -33,7 +33,7 @@ int main()
 	sAddrSize = sizeof(sAddr);
 	cAddrSize = sizeof(cAddr);
 
-	sSockFd = socket(PF_INET, SOCK_DGRAM, 0);
+	sSockFd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sSockFd == -1) {
 		fprintf(stderr, "socket|errno[%d]\n", errno);
 		return 0;
@@ -66,27 +66,26 @@ int main()
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
-		ssize_t snd = 0;
-		ssize_t totalSnd = 0;
+		ssize_t rcv = 0;
+		ssize_t totalRcv = 0;
 
-		while (1) {
-			snd = sendto(cSockFd, &data + totalSnd, sizeof(data) - totalSnd, 0, (struct sockaddr*)&sAddr, sAddrSize);
-			if (snd == -1) {
-				fprintf(stderr, "sendto|errno[%d]\n", errno);
+		while (1) { //MSG_WAITALL MSG_DONTWAIT
+			rcv = recvfrom(cSockFd, &data + totalRcv, sizeof(data) - totalRcv, MSG_WAITALL, (struct sockaddr*)&sAddr, &sAddrSize);
+			if (rcv == -1) {
+				fprintf(stderr, "recvfrom|errno[%d]\n", errno);
 				goto EXIT;
 			}
-			else if (snd > 0 && snd < sizeof(data)) {
-				printf("snd[%ld]\n", snd);
-				totalSnd += snd;
-				printf("totalSnd[%ld]\n", totalSnd);
-				continue;
-			}
-			else if (snd == sizeof(data)) {
-				printf("snd[%ld]:데이터 수신|파일 작성중\n", snd);
+			printf("rcv[%ld]\n", rcv);
+			
+			totalRcv += rcv;
+			printf("totalRcv[%ld]\n", totalRcv);
+
+			if (totalRcv == sizeof(data)) {
+				printf("totalRcv[%ld]:데이터 수신|파일 작성중\n", totalRcv);
 				break;
 			}
-			else if (snd == 0) {
-				printf("snd[exit]:프로그램 종료\n");
+			else if (totalRcv == 0) {
+				printf("totalRcv[%ld]:프로그램 종료\n", totalRcv);
 				goto EXIT;
 			}
 		}
