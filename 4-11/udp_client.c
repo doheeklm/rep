@@ -72,6 +72,11 @@ int main()
 			ClearStdin(data.name);
 			
 			if (strcmp(str_exit, data.name) == 0) {
+				ssize_t temp = 0;
+				temp = sendto(cSockFd, str_exit, sizeof(str_exit), 0, (struct sockaddr*)&sAddr, sAddrSize);
+				if (temp == -1) {
+					fprintf(stderr, "sendto|errno[%d]\n", errno);
+				}
 				goto EXIT;
 			}
 
