@@ -42,14 +42,12 @@ int main()
 		goto EXIT;
 	}
 	
-	const char* addr = "127.0.0.1";
-	//const char* addr = "172.20.234.142";
-	unsigned int conv_addr = inet_addr(addr);
-	if (conv_addr == -1) {
-		fprintf(stderr, "inet_addr|errno[%d]\n", errno);
-			goto EXIT;
+	//sAddr.sin_addr.s_addr = inet_addr("172.20.234.142");
+	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (sAddr.sin_addr.s_addr == -1) {
+		fprintf(stderr, "htonl|errno[%d]\n", errno);
+		goto EXIT;
 	}
-	sAddr.sin_addr.s_addr = conv_addr;
 
 	const int flag = 1;
 	int SetSockOpt = setsockopt(cSockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
@@ -116,10 +114,6 @@ int main()
 			if (totalSnd == sizeof(data)) {
 				printf("totalSnd[%ld]:데이터 송신\n", totalSnd);
 				break;
-			}
-			else if (totalSnd == 0) {
-				printf("totalSnd[%ld]:프로그램 종료\n", totalSnd);
-				goto EXIT;
 			}
 		}
 	}

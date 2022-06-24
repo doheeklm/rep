@@ -47,6 +47,7 @@ int main()
 		goto EXIT;
 	}
 	
+	//sAddr.sin_addr.s_addr = inet_addr("172.20.234.142");
 	sAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (sAddr.sin_addr.s_addr == -1) {
 		fprintf(stderr, "htonl|errno[%d]\n", errno);
@@ -59,7 +60,7 @@ int main()
 		goto EXIT;
 	}
 
-	printf("cSockFd[%d]\n", cSockFd);
+	printf("sSockFd[%d]\n", sSockFd);
 
 	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
@@ -69,8 +70,8 @@ int main()
 		ssize_t rcv = 0;
 		ssize_t totalRcv = 0;
 
-		while (1) { //MSG_WAITALL MSG_DONTWAIT
-			rcv = recvfrom(cSockFd, &data + totalRcv, sizeof(data) - totalRcv, MSG_WAITALL, (struct sockaddr*)&sAddr, &sAddrSize);
+		while (1) {
+			rcv = recvfrom(sSockFd, &data + totalRcv, sizeof(data) - totalRcv, 0, (struct sockaddr*)&sAddr, &sAddrSize);
 			if (rcv == -1) {
 				fprintf(stderr, "recvfrom|errno[%d]\n", errno);
 				goto EXIT;
@@ -84,7 +85,8 @@ int main()
 				printf("totalRcv[%ld]:데이터 수신|파일 작성중\n", totalRcv);
 				break;
 			}
-			else if (totalRcv == 0) {
+
+			 if (totalRcv == 0) {
 				printf("totalRcv[%ld]:프로그램 종료\n", totalRcv);
 				goto EXIT;
 			}
@@ -107,7 +109,7 @@ int main()
 	}
 
 EXIT:
-	if (close(cSockFd) == -1) {
+	if (close(sSockFd) == -1) {
 		fprintf(stderr, "close|errno[%d]\n", errno);
 	}
 
