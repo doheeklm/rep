@@ -1,13 +1,14 @@
 /* udp_client.c */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio_ext.h>
-#include <sys/types.h> //socket() sendto()
-#include <sys/socket.h> //socket() sendto()
-#include <unistd.h> //close()
-#include <arpa/inet.h> //htons() htonl()
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #define PORT 8888
 
@@ -49,15 +50,7 @@ int main()
 		goto EXIT;
 	}
 
-	const int flag = 1;
-	int SetSockOpt = setsockopt(cSockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
-	if (SetSockOpt == -1) {
-		fprintf(stderr, "setsockopt|errno[%d]\n", errno);
-		goto EXIT;
-	}
-
 	printf("cSockFd[%d]\n", cSockFd);
-	
 	printf("입력해야할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
@@ -70,10 +63,13 @@ int main()
 				goto EXIT;
 			}
 			ClearStdin(data.name);
-			
+		
 			if (strcmp(str_exit, data.name) == 0) {
 				ssize_t temp = 0;
-				temp = sendto(cSockFd, str_exit, sizeof(str_exit), 0, (struct sockaddr*)&sAddr, sAddrSize);
+
+				//TODO ptrSize 유의: strlen(str_exit)
+				//TODO data.name에 exit 넣어보내기
+				temp = sendto(cSockFd, data.name, sizeof(data.name), 0, (struct sockaddr*)&sAddr, sAddrSize);
 				if (temp == -1) {
 					fprintf(stderr, "sendto|errno[%d]\n", errno);
 				}
@@ -100,27 +96,14 @@ int main()
 		}
 		ClearStdin(data.address);
 
-		printf("%s|%s|%s\n", data.name, data.phone, data.address);
-
+		//TODO while, totalSnd x
 		ssize_t snd = 0;
-		ssize_t totalSnd = 0;
-
-		while (1) { 
-			snd = sendto(cSockFd, &data + totalSnd, sizeof(data) - totalSnd, 0, (struct sockaddr*)&sAddr, sAddrSize);
-			if (snd == -1) {
-				fprintf(stderr, "sendto|errno[%d]\n", errno);
-				goto EXIT;
-			}
-			printf("snd[%ld]\n", snd);
-
-			totalSnd += snd;
-			printf("totalSnd[%ld]\n", totalSnd);
-
-			if (totalSnd == sizeof(data)) {
-				printf("totalSnd[%ld]:데이터 송신\n", totalSnd);
-				break;
-			}
+		snd = sendto(cSockFd, &data, sizeof(data), 0, (struct sockaddr*)&sAddr, sAddrSize);
+		if (snd == -1) {
+			fprintf(stderr, "sendto|errno[%d]\n", errno);
+			goto EXIT;
 		}
+		printf("snd[%ld]\n", snd);
 	}
 
 EXIT:

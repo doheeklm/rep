@@ -1,12 +1,13 @@
 /* udp_server.c */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/types.h> //socket() bind() recvfrom()
-#include <sys/socket.h> //socket() bind() recvfrom()
-#include <unistd.h> //close()
-#include <arpa/inet.h> //htons() htonl()
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #define PORT 8888
 
@@ -15,6 +16,8 @@ typedef struct _DATA {
 	char phone[14];
 	char address[151];
 } Data;
+
+const char* str_exit = "exit";
 
 int main()
 {
@@ -61,35 +64,23 @@ int main()
 	}
 
 	printf("sSockFd[%d]\n", sSockFd);
-
 	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
 		memset(&data, 0, sizeof(data));
 
+		//TODO while, totalRcv x
 		ssize_t rcv = 0;
-		ssize_t totalRcv = 0;
-
-		while (1) {
-			rcv = recvfrom(sSockFd, &data + totalRcv, sizeof(data) - totalRcv, 0, (struct sockaddr*)&sAddr, &sAddrSize);
-			if (rcv == -1) {
-				fprintf(stderr, "recvfrom|errno[%d]\n", errno);
-				goto EXIT;
-			}
-			printf("rcv[%ld]\n", rcv);
-			
-			totalRcv += rcv;
-			printf("totalRcv[%ld]\n", totalRcv);
-
-			if (totalRcv == sizeof(data)) {
-				printf("totalRcv[%ld]:데이터 수신|파일 작성중\n", totalRcv);
-				break;
-			}
-			else if (totalRcv == 8) {
-				printf("totalRcv[%ld]:exit 입력받아 프로그램 종료함\n", totalRcv);
-				goto EXIT;
-			}
-
+		rcv = recvfrom(sSockFd, &data, sizeof(data), 0, (struct sockaddr*)&sAddr, &sAddrSize);
+		if (rcv == -1) {
+			fprintf(stderr, "recvfrom|errno[%d]\n", errno);
+			goto EXIT;
+		}
+		printf("rcv[%ld]\n", rcv);
+	
+		//TODO data.name에 exit 받아서 종료처리
+		if (strcmp(str_exit, data.name) == 0) {
+			goto EXIT;
 		}
 
 		FILE* fp = NULL;
