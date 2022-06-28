@@ -1,12 +1,14 @@
 /* tcp_server.c */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/types.h> //socket() bind() listen() accept() 
-#include <sys/socket.h> //socket() bind() listen() accept()
-#include <unistd.h> //read() close()
-#include <arpa/inet.h> //htons() htonl()
+#include <sys/types.h>
+#include <sys/socket.h> 
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <signal.h>
 
 #define PORT 7777
 #define MAX_PENDING 5
@@ -30,7 +32,7 @@ int main()
 	
 	socklen_t sAddrSize = 0;
 	socklen_t cAddrSize = 0;
-
+	
 	sAddrSize = sizeof(sAddr);
 	cAddrSize = sizeof(cAddr);
 
@@ -41,7 +43,7 @@ int main()
 	}
 
 	memset(&sAddr, 0, sAddrSize);
-	sAddr.sin_family = AF_INET;
+	sAddr.sin_family = AF_INET; //IPv4
 	sAddr.sin_port = htons(PORT);
 	if (sAddr.sin_port == -1) {
 		fprintf(stderr, "htons|errno[%d]\n", errno);
@@ -70,8 +72,8 @@ int main()
 		fprintf(stderr, "accept|errno[%d]\n", errno);
 		goto EXIT;
 	}
+	
 	printf("sSockFd[%d] cSockFd[%d]\n", sSockFd, cSockFd);
-
 	printf("입력받아야 할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
@@ -115,7 +117,6 @@ int main()
 			fprintf(stderr, "fclose|errno[%d]\n", errno);
 			goto EXIT;
 		}
-
 	}
 
 EXIT:

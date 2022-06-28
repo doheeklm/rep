@@ -1,13 +1,14 @@
 /* tcp_client.c */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio_ext.h>
-#include <sys/types.h> //socket() connect()
-#include <sys/socket.h> //socket() connect() inet_addr()
-#include <unistd.h> //write() close()
-#include <arpa/inet.h> //htons()
+#include <sys/types.h>
+#include <sys/socket.h> 
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #define PORT 7777
 
@@ -49,19 +50,12 @@ int main()
 		goto EXIT;
 	}
 
-	const int flag = 1;
-	int SetSockOpt = setsockopt(cSockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
-	if (SetSockOpt == -1) {
-		fprintf(stderr, "setsockopt|errno[%d]\n", errno);
-		goto EXIT;
-	}
-
 	if (connect(cSockFd, (struct sockaddr*)&sAddr, sAddrSize) == -1) {
 		fprintf(stderr, "connect|errno[%d]\n", errno);
 		goto EXIT;
 	}
-	printf("cSockFd[%d]\n", cSockFd);
-	
+
+	printf("cSockFd[%d]\n", cSockFd);	
 	printf("입력해야할 바이트 수[%ld]\n", sizeof(data));
 
 	while (1) {
