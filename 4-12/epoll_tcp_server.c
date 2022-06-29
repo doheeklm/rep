@@ -15,6 +15,11 @@ typedef struct _AddrBook {
 	char szAddress[151];
 } ADDRBOOK;
 
+typedef struct _Client {
+	int nFd;
+	int nCount;
+} CLIENT;
+
 const char* szExit = "exit";
 
 int main()
@@ -24,7 +29,6 @@ int main()
 	int nMaxPending = 5;
 	int nMaxConnecting = 5;
 	int nListenFd = 0;
-	int nClientFd = 0;
 	int nEpollFd = 0;
 	int nFdCount = 0;
 	int nTimeout = -1;
@@ -42,9 +46,12 @@ int main()
 	struct epoll_event atEvents[nMaxConnecting]; // 클라이언트 소켓들을 관리하기 위한 구조체
 
 	ADDRBOOK tAddrBook;
+	CLIENT tClient[nMaxConnecting];
+	memset(&tClient[n])
+
 	int nRead = 0;
 	int nTotalRead = 0;;
-	FILE* pFile;
+	FILE* pFile = NULL;
 
 	nListenFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (nListenFd == -1) {
@@ -52,7 +59,7 @@ int main()
 		//return
 	}
 	
-	nEpollFd = epoll_create(10);
+	nEpollFd = epoll_create(100);
 	if (nEpollFd == -1) {
 		fprintf(stderr, "epoll_create|errno[%d]\n", errno);
 		//return
@@ -60,9 +67,6 @@ int main()
 	
 	nAddrSize = sizeof(tAddr);
 	nClientAddrSize = sizeof(tClientAddr);
-
-	tEvent.events = EPOLLIN;
-	tEvent.data.fd = nListenFd;
 
 	memset(&tAddr, 0, nAddrSize);
 	tAddr.sin_family = AF_INET;
@@ -74,6 +78,12 @@ int main()
 	tAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (tAddr.sin_addr.s_addr == -1) {
 		fprintf(stderr, "htonl|errno[%d]\n", errno);
+		//return
+	}
+	
+	const int flag = 1;
+	if (setsockopt(nListenFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int)) == -1) {
+		fprintf(stderr, "setsockopt|errno[%d]\n", errno);
 		//return
 	}
 
@@ -94,18 +104,19 @@ int main()
 		//return
 	}
 
+	//TODO EPOLLIN EPOLLERR인지 확인..
+
 	while (1) {
 		nFdCount = epoll_wait(nEpollFd, atEvents, nMaxConnecting, nTimeout);
-		if (nFdCount == -1) {
+		if (nFdCount == -1) { //nFdCount: 변화가 발생한 fd 갯수
 			fprintf(stderr, "epoll_wait|errno[%d]\n", errno);
 			//return
 		}
 
 		for (i = 0; i < nFdCount; i++) {
 			if (atEvents[i].data.fd == nListenFd) {
-				//int fd array (Use linked list to check which one is added and deleted)
 				if (nAccept == 5) {
-					printf("동시접속 가능한 Client의 수가 5개를 초과하였습니다.\n");
+					printf("동시접속 가능한 client의 수가 5개를 초과하였습니다.\n");
 					goto CONTINUE;
 				}
 
@@ -114,7 +125,6 @@ int main()
 					fprintf(stderr, "accept|errno[%d]\n", errno);
 					//return
 				}
-				nAccept++;
 
 				tEvent.events = EPOLLIN;
 				tEvent.data.fd = nClientFd;
@@ -122,10 +132,9 @@ int main()
 					fprintf(stderr, "epoll_ctl|errno[%d]\n", errno);
 					//return
 				}
-
-				printf("=====================================\n연결된 Client: nClientFd[%d]\n현재 동시접속 Client 수: nAccept[%d]\n======================================\n", nClientFd, nAccept);
 			}
-			else { 
+			else { /* epoll에 등록된 Client Fd의 데이터 처리 */
+				printf("=====================================\nAccept값 확인[%d]\n=====================================\n", nAccept);
 				nClientFd = atEvents[i].data.fd;
 				
 				if (nReceive == 0) {
@@ -145,7 +154,6 @@ int main()
 						if (nRead == -1) {
 							fprintf(stderr, "read|errno[%d]\n", errno);
 						}
-						printf("nRead[%d]\n", nRead);
 					
 						if (strcmp(szExit, tAddrBook.szName) == 0) {
 							printf("=====================================\n변화 감지된 Client: nClientFd[%d]\nexit를 전송받음: 관찰대상에서 삭제\n=====================================\n", nClientFd);
@@ -157,6 +165,7 @@ int main()
 							if (close(nClientFd) == -1) {
 								fprintf(stderr, "close|errno[%d]\n", errno);
 							}
+
 							goto CONTINUE;
 						}
 
@@ -171,26 +180,24 @@ int main()
 						}
 					}
 
-					FILE* fp = NULL;
-					fp = fopen(szBuffer, "a");
-					if (fp == NULL) {
+					pFile = fopen(szBuffer, "a");
+					if (pFile == NULL) {
 						fprintf(stderr, "fopen|errno[%d]\n", errno);
 						goto EXIT;
 					}
-					if (fwrite(&tAddrBook, sizeof(tAddrBook), 1, fp) != 1) {
+					if (fwrite(&tAddrBook, sizeof(tAddrBook), 1, pFile) != 1) {
 						fprintf(stderr, "fwrite|errno[%d]\n", errno);
 					}
-					if (fclose(fp) != 0) {
+					if (fclose(pFile) != 0) {
 						fprintf(stderr, "fclose|errno[%d]\n", errno);
 						goto EXIT;
 					}
-
 				}//else if
 			}//else
 		}//for
 	
 CONTINUE:
-	printf("epoll_wait()로 돌아갑니다.\n");
+	printf("대기 상태로 돌아갑니다.\n");
 
 	}//while
 
