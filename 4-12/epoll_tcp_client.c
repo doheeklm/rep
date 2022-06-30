@@ -27,6 +27,7 @@ int main(int argc, char* argv[])
 
 	int nPort;
 	char szFileName[255];
+	//TODO memset 
 	int nFd;
 
 	if (sizeof(argv[1]) > sizeof(szFileName)) {
@@ -36,6 +37,7 @@ int main(int argc, char* argv[])
 
 	nPort = 7000;
 	strncpy(szFileName, argv[1], sizeof(argv[1]));
+	//TODO NULL
 	nFd = 0;
 	
 	struct sockaddr_in tAddr;
@@ -43,13 +45,10 @@ int main(int argc, char* argv[])
 	nAddrSize = sizeof(tAddr);
 	ADDRBOOK tAddrBook;
 	
-	int nWrite = 0;
-	int nTotalWrite = 0;
-
 	nFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (nFd == -1) {
 		fprintf(stderr, "socket|errno[%d]\n", errno);
-		//return
+		return 0;
 	}
 
 	memset(&tAddr, 0, nAddrSize);
@@ -57,29 +56,39 @@ int main(int argc, char* argv[])
 	tAddr.sin_port = htons(nPort);
 	if (tAddr.sin_port == -1) {
 		fprintf(stderr, "htons|errno[%d]\n", errno);
-		//return
+		goto EXIT;
 	}
 	tAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (tAddr.sin_addr.s_addr == -1) {
 		fprintf(stderr, "htonl|errno[%d]\n", errno);
-		//return
+		goto EXIT;
 	}
 
 	if (connect(nFd, (struct sockaddr*)&tAddr, nAddrSize) == -1) {
 		fprintf(stderr, "connect|errno[%d]\n", errno);
-		//return
+		goto EXIT;
 	}
 	printf("nFd[%d]\n", nFd);
 
-	while(1) {
-		nWrite = write(nFd, &szFileName, sizeof(szFileName));
+	int nWrite = 0;
+	nWrite = write(nFd, &szFileName, sizeof(szFileName));
 		if (nWrite == -1) {
 			fprintf(stderr, "write|errno[%d]\n", errno);
-			//return
+			goto EXIT;
 		}
-
+	
+	while(1) {
 		memset(&tAddrBook, 0, sizeof(tAddrBook));
+	
+		int nTotalWrite = 0;
 
+		//TODO whilex
+	/*	nWrite = write(nFd, &szFileName, sizeof(szFileName));
+		if (nWrite == -1) {
+			fprintf(stderr, "write|errno[%d]\n", errno);
+			goto EXIT;
+		}
+*/
 		do {
 			printf("Name: ");
 			if (fgets(tAddrBook.szName, sizeof(tAddrBook.szName), stdin) == NULL) {
@@ -120,7 +129,7 @@ int main(int argc, char* argv[])
 			nWrite = write(nFd, &tAddrBook + nTotalWrite, sizeof(tAddrBook) - nTotalWrite);
 			if (nWrite == -1) {
 				fprintf(stderr, "write|errno[%d]\n", errno);
-				//return
+				goto EXIT;
 			}
 			printf("nWrite[%d]\n", nWrite);
 			
@@ -130,12 +139,12 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
+		printf("test\n");
 	}
 
 EXIT:
 	if (close(nFd) == -1) {
 		fprintf(stderr, "close|errno[%d]\n", errno);
-		//return
 	}
 
 	return 0;
