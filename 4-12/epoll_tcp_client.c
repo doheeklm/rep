@@ -20,7 +20,7 @@ typedef struct _AddrBook {
 
 const char* szExit = "exit";
 void ClearStdin(char* c);
-//int MyWrite(int fd, void* buf);
+int MyWrite(int fd, void* buf, int nSize);
 
 int main(int argc, char* argv[])
 {
@@ -82,21 +82,11 @@ int main(int argc, char* argv[])
 	}
 	printf("nFd[%d]\n", nFd);
 
-	/*
-	if (MyWrite(nFd, &szFileName) == WRITE_FAIL)
+	if (MyWrite(nFd, &szFileName, sizeof(szFileName)) == WRITE_FAIL)
 	{
 		goto EXIT;
 	}
-	*/
-
-	int nWrite = 0;
-	nWrite = write(nFd, &szFileName, sizeof(szFileName));
-	if (nWrite == -1)
-	{
-		fprintf(stderr, "write|errno[%d]\n", errno);
-		goto EXIT;
-	}
-	printf("파일명 전송[%s]\n", szFileName);
+	printf("=====================================\n파일명을 전송했습니다: %s\n=====================================\n", szFileName);
 
 	while(1)
 	{
@@ -113,19 +103,11 @@ int main(int argc, char* argv[])
 			
 			if (strcmp(szExit, tAddrBook.szName) == 0)
 			{
-				nWrite = write(nFd, &tAddrBook, sizeof(tAddrBook));
-				if (nWrite == -1)
-				{
-					fprintf(stderr, "write|errno[%d]\n", errno);
-				}
-				goto EXIT;
-
-				/*
-				if (MyWrite(nFd, &tAddrBook) == WRITE_FAIL)
+				if (MyWrite(nFd, &tAddrBook, sizeof(tAddrBook)) == WRITE_FAIL)
 				{
 					goto EXIT;
 				}
-				*/
+				goto EXIT;	
 			}
 
 			printf("Phone Num: ");
@@ -150,32 +132,10 @@ int main(int argc, char* argv[])
 		}
 		ClearStdin(tAddrBook.szAddress);
 
-		/*
-		if (MyWrite(nFd, &tAddrBook) == WRITE_FAIL)
+		if (MyWrite(nFd, &tAddrBook, sizeof(tAddrBook)) == WRITE_FAIL)
 		{
 			goto EXIT;
 		}
-		*/
-
-		int nTotalWrite = 0;
-
-		while (1)
-		{
-			nWrite = write(nFd, &tAddrBook + nTotalWrite, sizeof(tAddrBook) - nTotalWrite);
-			if (nWrite == -1)
-			{
-				fprintf(stderr, "write|errno[%d]\n", errno);
-				goto EXIT;
-			}
-			printf("nWrite[%d] ", nWrite);
-		
-			nTotalWrite += nWrite;
-			if (nTotalWrite == sizeof(tAddrBook))
-			{
-				printf("nTotalWrite[%d]\n", nTotalWrite);
-				break;
-			}
-		} 
 	}
 
 EXIT:
@@ -202,31 +162,29 @@ void ClearStdin(char* c)
 	__fpurge(stdin);
 }
 
-/*
-int MyWrite(int fd, void* buf)
+int MyWrite(int fd, void* buf, int nSize)
 {
-	int wr = 0;
-	int total = 0;
+	int nWrite = 0;
+	int nTotal = 0;
 
 	while (1)
 	{
-		nWrite = write(fd, buf + total, sizeof(buf) - total);
+		nWrite = write(fd, buf + nTotal, nSize - nTotal);
 		if (nWrite == -1)
 		{
 			fprintf(stderr, "write|errno[%d]\n", errno);
 			return WRITE_FAIL;
 		}
 	
-		total += wr;
-		if (total == sizeof(buf))
+		nTotal += nWrite;
+		if (nTotal == nSize)
 		{
-			printf("total[%d]:데이터 송신\n", total);
-			return total;
+			printf("=====================================\nWrite 성공\n=====================================\n");
+			return nTotal;
 		}
-		else if (total == 0)
+		else if (nTotal == 0)
 		{
 			return WRITE_EOF;
 		}
 	} 
 }
-*/

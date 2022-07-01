@@ -28,7 +28,7 @@ typedef struct _Client
 } CLIENT;
 
 const char* szExit = "exit";
-int MyRead(int fd, void* buf);
+int MyRead(int fd, void* buf, int nSize);
 
 int main()
 {
@@ -45,8 +45,6 @@ int main()
 	int nFdCount = 0;
 	int nTimeout = -1;
 	int nClient = 0;
-	int nRead = 0;
-	int nTotalRead = 0;
 	char szFileName[255];
 
 	struct sockaddr_in tAddr;
@@ -163,9 +161,10 @@ int main()
 							fprintf(stderr, "close|errno[%d]\n", errno);
 							goto EXIT;
 						}
-						printf("Client 동시 접속 수가 5개를 초과하여 연결을 끊습니다.\n");
+						printf("=====================================\nClient 동시 접속 수가 5개를 초과하여 연결을 끊습니다.\n=====================================\n");
 						goto WHILE;
 					}
+					//TODO (Q.) 서버가 끊었는데, 클라이언트가 응답받지 못함
 
 					for (k =  0; k < nMaxConnecting; k++)
 					{
@@ -200,13 +199,13 @@ int main()
 							if (tClient[j].nReceive == 0) {
 								memset(&szFileName, 0, sizeof(szFileName));
 								memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));
-								
-								nRead = read(tClient[j].nFd, &szFileName, sizeof(szFileName));
-								if (nRead == -1)
+					
+								//TODO MyRead 함수로 빼기
+								if (MyRead(tClient[j].nFd, &szFileName, sizeof(szFileName)) == READ_FAIL)
 								{
-									fprintf(stderr, "read|errno[%d]\n", errno);
 									goto EXIT;
 								}
+
 								snprintf(tClient[j].szFilePath, sizeof(tClient[j].szFilePath), "./%s.txt", szFileName);
 
 								tClient[j].nReceive = 1;
@@ -214,32 +213,11 @@ int main()
 							}
 							else if (tClient[j].nReceive == 1)
 							{
-								/*
-								if (MyRead(tClient[j].nFd, &tAddrBook) == READ_FAIL)
+								if (MyRead(tClient[j].nFd, &tAddrBook, sizeof(tAddrBook)) == READ_FAIL)
 								{
 									goto EXIT;
 								}
-								*/
-
-								nRead = 0;
-								nTotalRead = 0;
-								while (1)
-								{
-									nRead = read(tClient[j].nFd, &tAddrBook + nTotalRead, sizeof(tAddrBook) - nTotalRead);	
-									if (nRead == -1)
-									{
-										fprintf(stderr, "read|errno[%d]\n", errno);
-										goto EXIT;
-									}
-
-									nTotalRead += nRead;		
-									if (nTotalRead == sizeof(tAddrBook))
-									{
-										printf("=====================================\n변화 감지된 Client: #%d\n주소록 정보 바이트 수: %d\n=====================================\n", tClient[j].nFd, nTotalRead);
-										break;
-									}
-								}
-							
+								
 								if (strcmp(szExit, tAddrBook.szName) == 0)
 								{
 									printf("=====================================\n변화 감지된 Client: #%d\n관찰대상에서 삭제\n=====================================\n", tClient[j].nFd);
@@ -322,31 +300,30 @@ EXIT:
 	return 0;
 }
 
-/*
-int MyRead(int fd, void* buf)
+int MyRead(int fd, void* buf, int nSize)
 {
-	int rd = 0;
-	int total = 0;
+	int nRead = 0;
+	int nTotal = 0;
 
 	while (1)
 	{
- 		rd = read(fd, buf + total, sizeof(buf) - total);
- 		if (rd == -1)
+ 		nRead = read(fd, buf + nTotal, nSize - nTotal);
+ 		if (nRead == -1)
  		{
  			fprintf(stderr, "read|errno[%d]\n", errno);
 			return READ_FAIL;
 		}
 
-		total += rd;
-		if (total == sizeof(buf))
+		nTotal += nRead;
+		if (nTotal == nSize)
 		{
-			printf("=====================================\n변화 감지된 Client: #%d\n주소록 정보 바이트 수: %d\n=====================================\n", fd, total);
-			return total;
+			printf("=====================================\n변화 감지된 Client: #%d\nRead 성공\n=====================================\n", fd);
+			return nTotal;
 		}
-		else if (total == 0)
+		else if (nTotal == 0)
 		{
 			return READ_EOF;
 		}
 	}
 }
-*/
+
