@@ -82,6 +82,13 @@ int main(int argc, char* argv[])
 	}
 	printf("nFd[%d]\n", nFd);
 
+	/*
+	if (MyWrite(nFd, &szFileName) == WRITE_FAIL)
+	{
+		goto EXIT;
+	}
+	*/
+
 	int nWrite = 0;
 	nWrite = write(nFd, &szFileName, sizeof(szFileName));
 	if (nWrite == -1)
@@ -90,7 +97,6 @@ int main(int argc, char* argv[])
 		goto EXIT;
 	}
 	printf("파일명 전송[%s]\n", szFileName);
-	//MyWrite(nFd, &szFileName);
 
 	while(1)
 	{
@@ -112,9 +118,14 @@ int main(int argc, char* argv[])
 				{
 					fprintf(stderr, "write|errno[%d]\n", errno);
 				}
-
-				//MyWrite(nFd, &tAddrBook.szName);
 				goto EXIT;
+
+				/*
+				if (MyWrite(nFd, &tAddrBook) == WRITE_FAIL)
+				{
+					goto EXIT;
+				}
+				*/
 			}
 
 			printf("Phone Num: ");
@@ -139,12 +150,13 @@ int main(int argc, char* argv[])
 		}
 		ClearStdin(tAddrBook.szAddress);
 
-/*
+		/*
 		if (MyWrite(nFd, &tAddrBook) == WRITE_FAIL)
 		{
 			goto EXIT;
 		}
-*/
+		*/
+
 		int nTotalWrite = 0;
 
 		while (1)
@@ -193,26 +205,25 @@ void ClearStdin(char* c)
 /*
 int MyWrite(int fd, void* buf)
 {
-	int nWrite = 0;
-	int nTotalWrite = 0;
+	int wr = 0;
+	int total = 0;
 
 	while (1)
 	{
-		nWrite = write(fd, buf + nTotalWrite, sizeof(buf) - nTotalWrite);
+		nWrite = write(fd, buf + total, sizeof(buf) - total);
 		if (nWrite == -1)
 		{
 			fprintf(stderr, "write|errno[%d]\n", errno);
 			return WRITE_FAIL;
 		}
-		printf("nWrite[%d]\n", nWrite);
-		
-		nTotalWrite += nWrite;
-		if (nTotalWrite == sizeof(buf))
+	
+		total += wr;
+		if (total == sizeof(buf))
 		{
-			printf("nTotalWrite[%d]:데이터 송신\n", nTotalWrite);
-			return nTotalWrite;
+			printf("total[%d]:데이터 송신\n", total);
+			return total;
 		}
-		else if (nTotalWrite == 0)
+		else if (total == 0)
 		{
 			return WRITE_EOF;
 		}

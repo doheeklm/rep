@@ -28,7 +28,7 @@ typedef struct _Client
 } CLIENT;
 
 const char* szExit = "exit";
-//int MyRead(int fd, void* buf);
+int MyRead(int fd, void* buf);
 
 int main()
 {
@@ -178,9 +178,8 @@ int main()
 					}
 
 					tEvent.events = EPOLLIN;
-					//tEvent.data = tClient[nIndex];
-					tEvent.data.fd = tClient[nIndex].nFd;
-					
+					tEvent.data.fd = tClient[nIndex].nFd; //tEvent.data = tClient[nIndex];
+				
 					if (epoll_ctl(nEpollFd, EPOLL_CTL_ADD, tClient[nIndex].nFd, &tEvent) == -1)
 					{
 						fprintf(stderr, "epoll_ctl|errno[%d]\n", errno);
@@ -192,20 +191,16 @@ int main()
 				}
 				else
 				{
-					for (j = 0; j < nClient; j++)
+					for (j = 0; j < nMaxConnecting; j++) //j < nClient
 					{
 						if (ptEvents[i].data.fd == tClient[j].nFd)
 						{
-							//tClient[j] = ptEvents[i].data.ptr;
-							tClient[j].nFd = ptEvents[i].data.fd;
-							
+							tClient[j].nFd = ptEvents[i].data.fd; //tClient[j] = ptEvents[i].data.ptr;
+
 							if (tClient[j].nReceive == 0) {
 								memset(&szFileName, 0, sizeof(szFileName));
 								memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));
 								
-								//TODO READ 함수
-								//MyRead(tClient->nFd, &szFileName);
-
 								nRead = read(tClient[j].nFd, &szFileName, sizeof(szFileName));
 								if (nRead == -1)
 								{
@@ -216,11 +211,16 @@ int main()
 
 								tClient[j].nReceive = 1;
 								printf("=====================================\n변화 감지된 Client: #%d\n전송받은 파일 경로: %s\n=====================================\n", tClient[j].nFd, tClient[j].szFilePath);
-								continue;
 							}
 							else if (tClient[j].nReceive == 1)
 							{
-								//MyRead(tClient->nFd, &tAddrBook);
+								/*
+								if (MyRead(tClient[j].nFd, &tAddrBook) == READ_FAIL)
+								{
+									goto EXIT;
+								}
+								*/
+
 								nRead = 0;
 								nTotalRead = 0;
 								while (1)
@@ -261,7 +261,13 @@ int main()
 									memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));	
 									printf("=====================================\n동시 접속 중인 Client 수: %d\n=====================================\n", nClient);
 
-									goto CONT;
+									if (nClient == 0)
+									{
+										printf("서버를 종료합니다.\n");
+										goto EXIT;
+									}
+
+									break;
 								}
 
 								pFile = fopen(tClient[j].szFilePath, "a");
@@ -280,20 +286,23 @@ int main()
 									goto EXIT;
 								}
 
-
 							}//else if (tClient->nReceive == 1)
+
 						}//if (tClient[j]->nFd == ptEvents[i].data.fd)
+
 					}//for (j = 0; j < nClient; j++)
 CONT:
 					printf("goto CONT\n");
 
 				}//else
+
 			}//if EPOLLIN
 			else if (ptEvents[i].events & EPOLLERR)
 			{
 				fprintf(stderr, "EPOLLERR|errno[%d]\n", errno);
 				goto EXIT;
 			}
+
 		}//for(i = 0; i < nFdCount; i++)
 
 WHILE:
@@ -313,29 +322,31 @@ EXIT:
 	return 0;
 }
 
-/*int MyRead(int fd, void* buf)
+/*
+int MyRead(int fd, void* buf)
 {
-  int nRead = 0;
-  int nTotalRead = 0;
+	int rd = 0;
+	int total = 0;
 
-  while (1)
-  {
-  nRead = read(fd, buf + nTotalRead, sizeof(buf) - nTotalRead);
-  if (nRead == -1)
-  {
-  fprintf(stderr, "read|errno[%d]\n", errno);
-  return READ_FAIL;
-  }
+	while (1)
+	{
+ 		rd = read(fd, buf + total, sizeof(buf) - total);
+ 		if (rd == -1)
+ 		{
+ 			fprintf(stderr, "read|errno[%d]\n", errno);
+			return READ_FAIL;
+		}
 
-  nTotalRead += nRead;
-  if (nTotalRead == sizeof(buf))
-  {
-  printf("=====================================\n변화 감지된 Client: nFd[%d]\nnTotalRead[%d]\n=====================================\n", fd, nTotalRead);
-  return nTotalRead;
-  }
-  else if (nTotalRead == 0)
-  {
-  return READ_EOF;
-  }
-  }
-}*/
+		total += rd;
+		if (total == sizeof(buf))
+		{
+			printf("=====================================\n변화 감지된 Client: #%d\n주소록 정보 바이트 수: %d\n=====================================\n", fd, total);
+			return total;
+		}
+		else if (total == 0)
+		{
+			return READ_EOF;
+		}
+	}
+}
+*/
