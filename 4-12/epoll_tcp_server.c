@@ -154,7 +154,6 @@ int main()
 						goto EXIT;
 					}
 
-					//TODO 5개 초과되는 연결 요청에 대해서는 강제로 끊음
 					if (nClient == 5) {
 						if (close(nClientFd) == -1)
 						{
@@ -164,7 +163,7 @@ int main()
 						printf("=====================================\nClient 동시 접속 수가 5개를 초과하여 연결을 끊습니다.\n=====================================\n");
 						goto WHILE;
 					}
-					//TODO (Q.) 서버가 끊었는데, 클라이언트가 응답받지 못함
+					//TODO Q. 서버 측에서 초과된 연결을 끊었는데, 클라이언트가 응답받지 못함
 
 					for (k =  0; k < nMaxConnecting; k++)
 					{
@@ -177,7 +176,7 @@ int main()
 					}
 
 					tEvent.events = EPOLLIN;
-					tEvent.data.fd = tClient[nIndex].nFd; //tEvent.data = tClient[nIndex];
+					tEvent.data.fd = tClient[nIndex].nFd;
 				
 					if (epoll_ctl(nEpollFd, EPOLL_CTL_ADD, tClient[nIndex].nFd, &tEvent) == -1)
 					{
@@ -194,13 +193,12 @@ int main()
 					{
 						if (ptEvents[i].data.fd == tClient[j].nFd)
 						{
-							tClient[j].nFd = ptEvents[i].data.fd; //tClient[j] = ptEvents[i].data.ptr;
+							tClient[j].nFd = ptEvents[i].data.fd;
 
 							if (tClient[j].nReceive == 0) {
 								memset(&szFileName, 0, sizeof(szFileName));
 								memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));
 					
-								//TODO MyRead 함수로 빼기
 								if (MyRead(tClient[j].nFd, &szFileName, sizeof(szFileName)) == READ_FAIL)
 								{
 									goto EXIT;
@@ -232,7 +230,6 @@ int main()
 										goto EXIT;
 									}
 
-									//TODO 클라이언트 연결 종료 시 처리
 									nClient--;
 									memset(&tClient[j].nFd, 0, sizeof(tClient[j].nFd));
 									memset(&tClient[j].nReceive, 0, sizeof(tClient[j].nReceive));
