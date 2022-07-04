@@ -30,9 +30,9 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	int nPort = 0;
-	int nFd = 0;
-	char szFileName[255];
+	int nPort = 0; //연동된 Port 번호
+	int nFd = 0; //Client 소켓 Fd
+	char szFileName[255]; //인자로 입력받을 주소록 파일명
 
 	if (sizeof(argv[1]) > sizeof(szFileName))
 	{
@@ -46,12 +46,12 @@ int main(int argc, char* argv[])
 	strncpy(szFileName, argv[1], sizeof(argv[1]));
 	szFileName[sizeof(szFileName) - 1] = '\0';
 	
-	struct sockaddr_in tAddr;
+	struct sockaddr_in tAddr; //소켓에 설정할 주소 정보
 
 	socklen_t nAddrSize;
 	nAddrSize = sizeof(tAddr);
 	
-	ADDRBOOK tAddrBook;
+	ADDRBOOK tAddrBook; //주소록 정보 구조체 변수
 	
 	nFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (nFd == -1)
