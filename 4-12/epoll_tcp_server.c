@@ -68,8 +68,8 @@ int main()
 		return 0;
 	}
 
-	struct epoll_event tEvent; //서버쪽 소켓에 Epoll 세팅 구조체
-	struct epoll_event* ptEvents; //Client 소켓들을 관리하기 위한 구조체
+	struct epoll_event tEvent; //Epoll Fd에 Listen Fd를 등록할 때 전달할 관찰 대상 이벤트 정보
+	struct epoll_event* ptEvents; //동시에 일어난 이벤트 정보들을 담는 구조체 포인터
 	ptEvents = (struct epoll_event*)malloc(sizeof(struct epoll_event) * nMaxConnecting);
 	if (ptEvents == NULL)
 	{
@@ -87,7 +87,7 @@ int main()
 		return 0;
 	}
 	
-	/* 커널 공간에 Epoll Fd를 생성한다. */
+	/* 커널 공간에 Epoll 인스턴스를 생성한다. */
 	nEpollFd = epoll_create(100);
 	if (nEpollFd == -1)
 	{
@@ -131,10 +131,9 @@ int main()
 		goto EXIT;
 	}
 
-	/* Epoll Fd에 Listen Fd를 등록한다. */
-	tEvent.events = EPOLLIN;
-	tEvent.data.fd = nListenFd;
-	if (epoll_ctl(nEpollFd, EPOLL_CTL_ADD, nListenFd, &tEvent) == -1)
+	tEvent.data.fd = nListenFd; //서버 소켓에 대해서
+	tEvent.events = EPOLLIN; //수신할 데이터가 존재하게 되는 이벤트를 관찰한다.
+	if (epoll_ctl(nEpollFd, EPOLL_CTL_ADD, nListenFd, &tEvent) == -1) //이러한 정보를 Epoll 인스턴스에 등록한다.
 	{
 		fprintf(stderr, "epoll_ctl|errno[%d]\n", errno);
 		goto EXIT;
@@ -191,7 +190,7 @@ int main()
 					tEvent.events = EPOLLIN;
 					tEvent.data.fd = tClient[nIndex].nFd;
 					
-					/* Epoll Fd에 Client Fd를 등록한다. */
+					/* 새로 만들어진 Client 소켓도 Epoll 인스턴스에 등록한다. */
 					if (epoll_ctl(nEpollFd, EPOLL_CTL_ADD, tClient[nIndex].nFd, &tEvent) == -1)
 					{
 						fprintf(stderr, "epoll_ctl|errno[%d]\n", errno);
