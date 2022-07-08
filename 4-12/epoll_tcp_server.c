@@ -12,6 +12,7 @@
 
 #define READ_FAIL -1
 #define READ_EOF 0
+#define szExit "exit"
 
 typedef struct _AddrBook //주소록 정보
 {
@@ -24,10 +25,9 @@ typedef struct _Client //Client 정보
 {
 	int nFd; //Client Fd
 	int nReceive; //Receive Status
-	char szFilePath[261]; //입력한 파일명을 경로로 저장
+	char szFileName[261]; //FileName
 } CLIENT;
 
-const char* szExit = "exit";
 int MyRead(int fd, void* buf, int nSize);
 
 int main()
@@ -47,25 +47,22 @@ int main()
 	int nFdCount = 0; //이벤트가 발생한 Fd의 개수
 	int nTimeout = -1; //Epoll 대기시간
 	int nClient = 0; //연결 요청 수락된 Client의 수
-	char szFileName[255]; //주소록의 FileName
 
 	struct sockaddr_in tAddr; //서버에서 생성된 소켓의 주소 정보
 	struct sockaddr_in tClientAddr; //연결 요청을 수락할 Client의 주소 정보
-	socklen_t nAddrSize;
-	socklen_t nClientAddrSize;
 	
+	socklen_t nAddrSize;
 	nAddrSize = sizeof(tAddr);
-	nClientAddrSize = sizeof(tClientAddr);
 	memset(&tAddr, 0, nAddrSize);
-	memset(&tClientAddr, 0, nClientAddrSize);
 
 	ADDRBOOK tAddrBook; //주소록 정보 구조체 변수
-	CLIENT* tClient; //Client 정보 구조체 변수
-	tClient = (CLIENT*)malloc(sizeof(CLIENT) * nMaxConnecting);
-	if (tClient == NULL)
+	CLIENT tClient[nMaxConnecting]; //Client 정보 구조체 변수
+
+	for (i = 0; i < nMaxConnecting; i++)
 	{
-		fprintf(stderr, "malloc|errno[%d]\n", errno);
-		return 0;
+		tClient[i].nFd = -1;
+		tClient[i].nReceive = 0;
+		memset(&tClient[i].szFileName, 0, sizeof(tClient[i].szFileName));
 	}
 
 	struct epoll_event tEvent; //Epoll Fd에 Listen Fd를 등록할 때 전달할 관찰 대상 이벤트 정보
@@ -95,13 +92,14 @@ int main()
 		goto EXIT;
 	}
 
-	tAddr.sin_family = AF_INET;
-	tAddr.sin_port = htons(nPort);
+	tAddr.sin_family = AF_INET; //IPv4주소
+	tAddr.sin_port = htons(nPort); //nPort=7000;
 	if (tAddr.sin_port == -1)
 	{
 		fprintf(stderr, "htons|errno[%d]\n", errno);
 		goto EXIT;
 	}
+	/* INADDR_ANY: 소켓을 특정 IP주소에 바인드 하지 않아도 될 때 사용됨. 사용하면 소켓이 모든 IP주소에 연결을 수락한다. */
 	tAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (tAddr.sin_addr.s_addr == -1)
 	{
@@ -109,7 +107,7 @@ int main()
 		goto EXIT;
 	}
 	
-	/* SO_REUSEADDR: 이미 사용된 주소를 재사용(bind)한다. */
+	/* SO_REUSEADDR: 소켓이 다른 소켓에서 사용 중인 포트에 강제로 바인딩 할 수 있다. */
 	const int flag = 1;
 	if (setsockopt(nListenFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int)) == -1)
 	{
@@ -143,7 +141,8 @@ int main()
 	{
 		/* Epoll Fd의 변화를 탐지한다. */
 		/* Epoll Fd의 사건 발생 시 ptEvents에 Fd를 채운다. */
-		nFdCount = epoll_wait(nEpollFd, ptEvents, nMaxConnecting, nTimeout);
+		/* nMaxConnecting + 1인 이유는, 다중접속 수를 초과했는데 연결 요청한 Fd를 닫아야하기 때문 */
+		nFdCount = epoll_wait(nEpollFd, ptEvents, nMaxConnecting + 1, nTimeout);
 		if (nFdCount == -1) //이벤트가 발생한 Fd 개수
 		{
 			fprintf(stderr, "epoll_wait|errno[%d]\n", errno);
@@ -156,9 +155,9 @@ int main()
 			{
 				if (ptEvents[i].data.fd == nListenFd) /* Epoll events의 사용자 데이터의 Fd가 Listen Fd 라면 */
 				{
-					/* 연결 요청을 수락하여 데이터를 주고 받을 수 있는 상태로 설정한다.  */
+					/* 연결 요청을 수락하여 데이터를 주고 받을 수 있는 상태로 설정한다. */
 					/* tClientAddr: 연결 요청을 수락할 Client의 주소 정보 */
-					nClientFd = accept(nListenFd, (struct sockaddr*)&tClientAddr, &nClientAddrSize);
+					nClientFd = accept(nListenFd, (struct sockaddr*)&tClientAddr, &nAddrSize);
 					if (nClientFd == -1)
 					{
 						fprintf(stderr, "accept|errno[%d]\n", errno);
@@ -179,14 +178,13 @@ int main()
 					/* 0인 Fd에 순차적으로 Fd를 채워준다. */
 					for (k =  0; k < nMaxConnecting; k++)
 					{
-						if (tClient[k].nFd == 0)
+						if (tClient[k].nFd == -1)
 						{
 							tClient[k].nFd = nClientFd;
 							nIndex = k;
 							break;
 						}
 					}
-
 					tEvent.events = EPOLLIN;
 					tEvent.data.fd = tClient[nIndex].nFd;
 					
@@ -206,22 +204,17 @@ int main()
 					{
 						if (ptEvents[i].data.fd == tClient[j].nFd)
 						{
-							tClient[j].nFd = ptEvents[i].data.fd;
-
 							/* 아직 리시브 받은게 없다면 파일명을 읽는다. */
 							if (tClient[j].nReceive == 0) {
-								memset(&szFileName, 0, sizeof(szFileName));
-								memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));
+								memset(&tClient[j].szFileName, 0, sizeof(tClient[j].szFileName));
 					
-								if (MyRead(tClient[j].nFd, &szFileName, sizeof(szFileName)) == READ_FAIL)
+								if (MyRead(tClient[j].nFd, &tClient[j].szFileName, sizeof(tClient[j].szFileName)) == READ_FAIL)
 								{
 									goto EXIT;
 								}
-
-								snprintf(tClient[j].szFilePath, sizeof(tClient[j].szFilePath), "./%s.txt", szFileName);
-
+								
 								tClient[j].nReceive = 1;
-								printf("=====================================\n변화 감지된 Client: #%d\n전송받은 파일 경로: %s\n=====================================\n", tClient[j].nFd, tClient[j].szFilePath);
+								printf("=====================================\n변화 감지된 Client: #%d\n전송받은 파일 경로: %s\n=====================================\n", tClient[j].nFd, tClient[j].szFileName);
 							}
 							else if (tClient[j].nReceive == 1) /* 파일명을 입력 받은 상태면 */
 							{
@@ -246,24 +239,18 @@ int main()
 										goto EXIT;
 									}
 
-									/* 삭제시킨 Client 정보를 0으로 수정하고, 연결된 Client 수에서 1을 뺀다.*/
+									/* 삭제시킨 Client 정보를 초기화하고, 연결된 Client 수에서 1을 뺀다.*/
 									nClient--;
-									memset(&tClient[j].nFd, 0, sizeof(tClient[j].nFd));
-									memset(&tClient[j].nReceive, 0, sizeof(tClient[j].nReceive));
-									memset(&tClient[j].szFilePath, 0, sizeof(tClient[j].szFilePath));	
+									tClient[j].nFd = -1;
+									tClient[j].nReceive = 0;
+									memset(&tClient[j].szFileName, 0, sizeof(tClient[j].szFileName));	
 									printf("=====================================\n동시 접속 중인 Client 수: %d\n=====================================\n", nClient);
-
-									if (nClient == 0)
-									{
-										printf("서버를 종료합니다.\n");
-										goto EXIT;
-									}
 
 									break;
 								}
 
 								/* 주소록 정보를 읽었으면 파일을 열고 쓴다. */
-								pFile = fopen(tClient[j].szFilePath, "a");
+								pFile = fopen(tClient[j].szFileName, "a");
 								if (pFile == NULL)
 								{
 									fprintf(stderr, "fopen|errno[%d]\n", errno);
@@ -278,33 +265,35 @@ int main()
 									fprintf(stderr, "fclose|errno[%d]\n", errno);
 									goto EXIT;
 								}
-
-							}//else if (tClient->nReceive == 1)
-
-						}//if (tClient[j]->nFd == ptEvents[i].data.fd)
-
-					}//for (j = 0; j < nClient; j++)
+							}
+						}
+					}
 CONT:
 					printf("goto CONT\n");
 
-				}//else
-
-			}//if EPOLLIN
-			else if (ptEvents[i].events & EPOLLERR)
+				}
+			}
+			else if ((ptEvents[i].events & EPOLLERR) ||
+					 (ptEvents[i].events & EPOLLHUP) ||
+					 (ptEvents[i].events & EPOLLRDHUP))
 			{
-				fprintf(stderr, "EPOLLERR|errno[%d]\n", errno);
+				printf("에러 감지됨\n");
+				if (epoll_ctl(nEpollFd, EPOLL_CTL_DEL, ptEvents[i].data.fd, NULL) == -1)
+				{
+					fprintf(stderr, "epoll_ctl|errno[%d]\n", errno);
+				}
+				if (close(ptEvents[i].data.fd) == -1)
+				{
+					fprintf(stderr, "close|errno[%d]\n", errno);
+				}
 				goto EXIT;
 			}
-
-		}//for(i = 0; i < nFdCount; i++)
-
-WHILE:
+		}
+ WHILE:
 		printf("goto WHILE\n");
-
-	}//while(1)
+	}
 
 EXIT:
-	free(tClient);
 	free(ptEvents);
 
 	if (close(nListenFd) == -1)
